@@ -1,0 +1,118 @@
+const mongoose = require('mongoose');
+const logger = require('../config/logger');
+
+const tokenSchema = new mongoose.Schema({
+  stackApiKey: {
+    type: String,
+    required: [true, 'Stack API key is required'],
+    unique: true,
+    index: true,
+  },
+  organizationUid: {
+    type: String,
+    required: [true, 'Organization UID is required'],
+  },
+  accessToken: {
+    type: String,
+    required: [true, 'Access token is required'],
+  },
+  refreshToken: {
+    type: String,
+    required: [true, 'Refresh token is required'],
+  },
+  expiresAt: {
+    type: Date,
+    required: [true, 'Expiration date is required'],
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  lastUsed: {
+    type: Date,
+    default: Date.now,
+  },
+}, {
+  timestamps: true,
+  versionKey: false,
+});
+
+// Indexes for better performance
+tokenSchema.index({ stackApiKey: 1, isActive: 1 });
+tokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
+
+// Pre-save middleware
+tokenSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+// Instance methods
+tokenSchema.methods.isExpired = function() {
+  return new Date() >= this.expiresAt;
+};
+
+tokenSchema.methods.updateLastUsed = function() {
+  this.lastUsed = new Date();
+  return this.save();
+};
+
+// Static methods
+tokenSchema.statics.findActiveByStackApiKey = function(stackApiKey) {
+  return this.findOne({ 
+    stackApiKey, 
+    isActive: true,
+    expiresAt: { $gt: new Date() }
+  });
+};
+
+tokenSchema.statics.findActiveTokens = function() {
+  return this.find({ 
+    isActive: true,
+    expiresAt: { $gt: new Date() }
+  });
+};
+
+tokenSchema.statics.deactivateExpiredTokens = async function() {
+  const result = await this.updateMany(
+    { 
+      expiresAt: { $lte: new Date() },
+      isActive: true 
+    },
+    { isActive: false }
+  );
+  
+  if (result.modifiedCount > 0) {
+    logger.info(`Deactivated ${result.modifiedCount} expired tokens`);
+  }
+  
+  return result;
+};
+
+tokenSchema.statics.findTokensNeedingRefresh = function() {
+  // Find tokens that are expired or will expire within 5 minutes
+  const fiveMinutesFromNow = new Date(Date.now() + (5 * 60 * 1000));
+  return this.find({
+    isActive: true,
+    expiresAt: { $lte: fiveMinutesFromNow },
+  });
+};
+
+// Error handling middleware
+tokenSchema.post('save', function(error, doc, next) {
+  if (error.name === 'MongoError' && error.code === 11000) {
+    next(new Error('Stack API key already exists'));
+  } else {
+    next(error);
+  }
+});
+
+module.exports = mongoose.model('OAuthToken', tokenSchema);
