@@ -131,30 +131,6 @@ const validateRateLimit = (req, res, next) => {
   next();
 };
 
-// Field configuration validation rules
-const validateFieldConfigRequest = [
-  body('patterns')
-    .isObject()
-    .withMessage('Patterns must be an object')
-    .custom((patterns) => {
-      const validCategories = ['title', 'description', 'metadata'];
-      for (const [category, fieldNames] of Object.entries(patterns)) {
-        if (!validCategories.includes(category)) {
-          throw new Error(`Invalid category: ${category}. Valid categories are: ${validCategories.join(', ')}`);
-        }
-        if (!Array.isArray(fieldNames)) {
-          throw new Error(`Field names for category '${category}' must be an array`);
-        }
-        if (fieldNames.some(name => typeof name !== 'string')) {
-          throw new Error(`All field names must be strings`);
-        }
-      }
-      return true;
-    }),
-  
-  handleValidationErrors,
-];
-
 // Test extraction validation rules
 const validateTestExtraction = [
   body('contentType')
@@ -198,7 +174,6 @@ module.exports = {
   validateWebhook,
   validateObjectId,
   validateRateLimit,
-  validateFieldConfigRequest,
   validateTestExtraction,
   validateTokenRequest,
   handleValidationErrors,

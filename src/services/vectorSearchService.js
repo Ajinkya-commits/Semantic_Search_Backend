@@ -1,7 +1,6 @@
 const { Pinecone } = require('@pinecone-database/pinecone');
 
 const config = require('../config');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 const pineconeIndexService = require('./pineconeIndexService');
 
@@ -27,7 +26,7 @@ class VectorSearchService {
     }
 
     try {
-      logger.info('Initializing Pinecone connection...', { indexName: targetIndexName });
+      console.log('Initializing Pinecone connection...', { indexName: targetIndexName });
       
       this.pinecone = new Pinecone({ 
         apiKey: this.apiKey,
@@ -39,9 +38,9 @@ class VectorSearchService {
       await this.index.describeIndexStats();
       
       this.isInitialized = true;
-      logger.info('✅ Pinecone connection initialized', { indexName: targetIndexName });
+      console.log('Pinecone connection initialized', { indexName: targetIndexName });
     } catch (error) {
-      logger.error('Failed to initialize Pinecone connection', {
+      console.error('Failed to initialize Pinecone connection', {
         error: error.message,
         indexName: targetIndexName,
       });
@@ -82,9 +81,9 @@ class VectorSearchService {
       };
 
       await this.index.upsert([upsertData]);
-      logger.debug(`Indexed entry: ${entryId}`);
+      console.log(`Indexed entry: ${entryId}`);
     } catch (error) {
-      logger.error(`Failed to index entry ${entryId}`, {
+      console.error(`Failed to index entry ${entryId}`, {
         error: error.message,
       });
       throw new AppError('Failed to index entry', 500);
@@ -103,7 +102,7 @@ class VectorSearchService {
     }
 
     try {
-      logger.debug('Indexing batch of entries', { count: entries.length });
+      console.log('Indexing batch of entries', { count: entries.length });
 
       const upsertData = entries.map(entry => {
         if (!entry.id || !Array.isArray(entry.vector) || !entry.text) {
@@ -122,9 +121,9 @@ class VectorSearchService {
 
       await this.index.upsert(upsertData);
 
-      logger.info(`Indexed ${entries.length} entries in batch`);
+      console.log(`Indexed ${entries.length} entries in batch`);
     } catch (error) {
-      logger.error('Failed to index batch of entries', {
+      console.error('Failed to index batch of entries', {
         count: entries.length,
         error: error.message,
       });
@@ -141,9 +140,9 @@ class VectorSearchService {
 
     try {
       await this.index.deleteOne(entryId);
-      logger.debug(`Deleted entry: ${entryId}`);
+      console.log(`Deleted entry: ${entryId}`);
     } catch (error) {
-      logger.error(`Failed to delete entry ${entryId}`, {
+      console.error(`Failed to delete entry ${entryId}`, {
         error: error.message,
       });
       throw new AppError('Failed to delete entry', 500);
@@ -158,13 +157,13 @@ class VectorSearchService {
     }
 
     try {
-      logger.debug('Deleting batch of entries', { count: entryIds.length });
+      console.log('Deleting batch of entries', { count: entryIds.length });
 
       await this.index.deleteMany({ ids: entryIds });
 
-      logger.info(`Deleted ${entryIds.length} entries in batch`);
+      console.log(`Deleted ${entryIds.length} entries in batch`);
     } catch (error) {
-      logger.error('Failed to delete batch of entries', {
+      console.error('Failed to delete batch of entries', {
         count: entryIds.length,
         error: error.message,
       });
@@ -184,7 +183,7 @@ class VectorSearchService {
     }
 
     try {
-      logger.debug('Performing vector search', {
+      console.log('Performing vector search', {
         vectorLength: queryEmbedding.length,
         topK,
         filters: Object.keys(metadataFilters),
@@ -215,7 +214,7 @@ class VectorSearchService {
           ...match.metadata,
         }));
 
-      logger.debug('Vector search completed', {
+      console.log('Vector search completed', {
         totalMatches: results.matches.length,
         filteredMatches: filteredResults.length,
         topScore: filteredResults[0]?.score || 0,
@@ -223,7 +222,7 @@ class VectorSearchService {
 
       return filteredResults;
     } catch (error) {
-      logger.error('Vector search failed', {
+      console.error('Vector search failed', {
         error: error.message,
         topK,
         filters: Object.keys(metadataFilters),
@@ -239,7 +238,7 @@ class VectorSearchService {
       const stats = await this.index.describeIndexStats();
       return stats;
     } catch (error) {
-      logger.error('Failed to get index statistics', { error: error.message });
+      console.error('Failed to get index statistics', { error: error.message });
       throw new AppError('Failed to get index statistics', 500);
     }
   }
@@ -248,12 +247,12 @@ class VectorSearchService {
     await this.ensureInitialized(stackApiKey);
 
     try {
-      logger.warn('Clearing entire Pinecone index - this action cannot be undone!');
+      console.log('Clearing entire Pinecone index - this action cannot be undone!');
       await this.index.deleteAll();
-      logger.info('Pinecone index cleared');
+      console.log('Pinecone index cleared');
     } catch (error) {
       
-      logger.error('Failed to clear index', { error: error.message });
+      console.error('Failed to clear index', { error: error.message });
       throw new AppError('Failed to clear index', 500);
     }
   }
@@ -285,9 +284,9 @@ class VectorSearchService {
       };
 
       await this.index.upsert([upsertData]);
-      logger.debug(`Indexed image: ${imageId}`);
+      console.log(`Indexed image: ${imageId}`);
     } catch (error) {
-      logger.error(`Failed to index image ${imageId}`, {
+      console.error(`Failed to index image ${imageId}`, {
         error: error.message,
       });
       throw new AppError('Failed to index image', 500);
@@ -303,7 +302,7 @@ class VectorSearchService {
       ...metadataFilters
     };
 
-    logger.debug('Image search filters', { imageFilters, topK, similarityThreshold });
+    console.log('Image search filters', { imageFilters, topK, similarityThreshold });
 
     const results = await this.search(queryEmbedding, topK, imageFilters, similarityThreshold, stackApiKey);
     
@@ -311,7 +310,7 @@ class VectorSearchService {
     const imageResults = results.filter(result => {
       const isImage = result.type === 'image' || result.imageUrl;
       if (!isImage) {
-        logger.warn('Non-image entry found in image search results', {
+        console.log('Non-image entry found in image search results', {
           id: result.id,
           type: result.type,
           hasImageUrl: !!result.imageUrl,
@@ -321,7 +320,7 @@ class VectorSearchService {
       return isImage;
     });
 
-    logger.debug('Image search results', {
+    console.log('Image search results', {
       totalResults: results.length,
       imageResults: imageResults.length,
       filtered: results.length - imageResults.length
@@ -364,7 +363,7 @@ class VectorSearchService {
         .sort((a, b) => b.weightedScore - a.weightedScore)
         .slice(0, topK);
 
-      logger.debug('Hybrid search completed', {
+      console.log('Hybrid search completed', {
         totalResults: allResults.length,
         textResults: textResults.length,
         imageResults: imageResults.length,
@@ -373,7 +372,7 @@ class VectorSearchService {
 
       return combinedResults;
     } catch (error) {
-      logger.error('Hybrid search failed', {
+      console.error('Hybrid search failed', {
         error: error.message,
         topK,
         options,
@@ -394,7 +393,7 @@ class VectorSearchService {
     }
 
     try {
-      logger.debug('Indexing batch of images', { count: images.length });
+      console.log('Indexing batch of images', { count: images.length });
 
       const upsertData = images.map(image => {
         if (!image.id || !Array.isArray(image.vector) || !image.url) {
@@ -414,9 +413,9 @@ class VectorSearchService {
 
       await this.index.upsert(upsertData);
 
-      logger.info(`Indexed ${images.length} images in batch`);
+      console.log(`Indexed ${images.length} images in batch`);
     } catch (error) {
-      logger.error('Failed to index batch of images', {
+      console.error('Failed to index batch of images', {
         count: images.length,
         error: error.message,
       });

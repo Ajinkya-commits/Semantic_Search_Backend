@@ -2,23 +2,12 @@ require('express-async-errors');
 require('dotenv').config();
 
 const express = require('express');
-const cors = require('cors');
-const compression = require('compression');
-const morgan = require('morgan');
 
 const config = require('./config');
-const logger = require('./config/logger');
 const databaseConnection = require('./database/connection');
 const backgroundTokenRefresh = require('./services/backgroundTokenRefresh');
 
 const { errorHandler, notFound } = require('./shared/middleware/errorHandler');
-const { 
-  securityHeaders, 
-  developmentRateLimit, 
-  corsOptions, 
-  sanitizeRequest, 
-  requestLogger 
-} = require('./shared/middleware/security');
 
 // Feature-based routes
 const searchRoutes = require('./features/search/routes/searchRoutes');
@@ -28,7 +17,6 @@ const configRoutes = require('./features/config/routes/configRoutes');
 
 // Legacy routes (to be migrated)
 const syncRoutes = require('./routes/syncRoutes');
-const fieldConfigRoutes = require('./routes/fieldConfigRoutes');
 const tokenRoutes = require('./routes/tokenRoutes');
 const oauthCallbackRouter = require('./routes/oauthCallback');
 const webhookRouter = require('./routes/webhookRoutes');
@@ -42,19 +30,22 @@ class Application {
   }
 
   setupMiddleware() {
-    this.app.use(securityHeaders);
-    this.app.use(cors(corsOptions));
-    this.app.use(compression());
-    
-    this.app.use(requestLogger);
-    this.app.use(morgan('combined', { stream: logger.stream }));
-    
-    this.app.use(developmentRateLimit);
-    
+    // Basic CORS middleware
+    this.app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      
+      if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+      } else {
+        next();
+      }
+    });
+
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-    
-    this.app.use(sanitizeRequest);
   }
 
   setupRoutes() {
@@ -84,7 +75,6 @@ class Application {
     
     // Legacy routes (to be migrated)
     this.app.use('/api/sync', syncRoutes);
-    this.app.use('/api/field-config', fieldConfigRoutes);
     this.app.use('/api/tokens', tokenRoutes);
     
     // OAuth and webhook routes
@@ -102,38 +92,33 @@ class Application {
       await databaseConnection.connect();
       
       backgroundTokenRefresh.start();
-      logger.info(' Background token refresh service started');
+      console.log('Background token refresh service started');
       
       this.app.listen(config.server.port, config.server.host, () => {
-        logger.info(`Server running on http://${config.server.host}:${config.server.port}`);
-        logger.info(`Health Check: http://${config.server.host}:${config.server.port}/health`);
-        logger.info('Using modular feature-based architecture');
+        console.log(`Server running on http://${config.server.host}:${config.server.port}`);
+        console.log(`Health Check: http://${config.server.host}:${config.server.port}/health`);
+        console.log('Using modular feature-based architecture');
       });
 
       process.on('SIGTERM', this.gracefulShutdown.bind(this));
       process.on('SIGINT', this.gracefulShutdown.bind(this));
       
     } catch (error) {
-      logger.error('Failed to start application', {
-        error: error.message,
-        stack: error.stack,
-      });
+      console.error('Failed to start application', error.message);
       process.exit(1);
     }
   }
 
   async gracefulShutdown(signal) {
-    logger.info(`Received ${signal}, starting graceful shutdown...`);
+    console.log(`Received ${signal}, starting graceful shutdown...`);
     
     try {
       await databaseConnection.gracefulShutdown();
       
-      logger.info('Graceful shutdown completed');
+      console.log('Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
-      logger.error('Error during graceful shutdown', {
-        error: error.message,
-      });
+      console.error('Error during graceful shutdown', error.message);
       process.exit(1);
     }
   }

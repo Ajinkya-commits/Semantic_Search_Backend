@@ -1,4 +1,3 @@
-const logger = require('../config/logger');
 const config = require('../config');
 
 class AppError extends Error {
@@ -53,7 +52,7 @@ const sendErrorProd = (err, res) => {
     });
   } else {
     // Programming or other unknown error: don't leak error details
-    logger.error('ERROR 💥', err);
+    console.error('ERROR ', err);
 
     res.status(500).json({
       status: 'error',

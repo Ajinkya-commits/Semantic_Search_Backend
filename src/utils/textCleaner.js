@@ -1,6 +1,4 @@
 const { JSDOM } = require("jsdom");
-const fieldConfigService = require('../services/fieldConfigService');
-
 
 function cleanHtml(rawHtml = "") {
   const dom = new JSDOM(rawHtml);
@@ -30,85 +28,66 @@ function extractTextFromField(val) {
   return "";
 }
 
-
-function shouldIncludeFieldForEmbeddings(fieldName, fieldValue) {
+function shouldIncludeFieldForEmbeddings(fieldName, fieldValue, contentType = null) {
+  // Skip system fields and metadata
+  const systemFields = [
+    '_version', '_in_progress', '_workflow', 'ACL', 'created_at', 'updated_at', 
+    'created_by', 'updated_by', 'publish_details', '_metadata', 'locale',
+    'uid', 'tags', 'file_size', 'filename', 'content_type', 'dimension',
+    'parent_uid', '_content_type_uid', 'url', 'is_dir'
+  ];
   
-  const metadataFields = new Set([
-  
-    "uid", "_version", "locale", "publish_details", "created_at", "updated_at",
-    "created_by", "updated_by", "user", "environment", "ACL", "time", "date",
-    "id", "version", "createdAt", "updatedAt", "createdBy", "updatedBy",
-    
-   
-    "created", "modified", "published", "unpublished", "deleted", "archived",
-    "status", "state", "type", "category", "tags", "metadata", "meta",
-    "system", "internal", "private", "hidden", "draft", "published_at",
-    "modified_at", "deleted_at", "archived_at", "expires_at", "scheduled_at",
-    
-   
-    "api_key", "token", "secret", "password", "hash", "signature", "checksum",
-    "reference", "ref", "link", "url", "uri", "path", "file", "filename",
-    "size", "length", "count", "index", "position", "order", "rank", "priority",
-    
-  
-    "timestamp", "datetime", "date_created", "date_modified", "date_published",
-    "last_modified", "last_updated", "last_accessed", "expiry_date", "start_date",
-    "end_date", "due_date", "deadline", "schedule", "appointment", "meeting_time",
-    
-   
-    "parent_id", "child_id", "related_id", "foreign_id", "external_id",
-    "reference_id", "source_id", "target_id", "owner_id", "author_id",
-    "editor_id", "reviewer_id", "approver_id", "assignee_id", "contact_id",
-    
-  
-    "config", "settings", "options", "preferences", "permissions", "roles",
-    "access_level", "security_level", "visibility", "public", "private",
-    "internal", "external", "active", "inactive", "enabled", "disabled"
-  ]);
-
-
-  if (metadataFields.has(fieldName)) {
+  if (systemFields.includes(fieldName)) {
     return false;
   }
 
-  
-  const metadataPatterns = [
-    /_id$/i, /_at$/i, /_date$/i, /_time$/i, /_timestamp$/i,
-    /^created_/i, /^updated_/i, /^modified_/i, /^deleted_/i,
-    /^last_/i, /^system_/i, /^internal_/i, /^meta_/i,
-    /_created$/i, /_updated$/i, /_modified$/i, /_deleted$/i,
-    /_system$/i, /_internal$/i, /_meta$/i, /_config$/i,
-    /_settings$/i, /_permissions$/i, /_access$/i, /_security$/i
-  ];
-
-  if (metadataPatterns.some(pattern => pattern.test(fieldName))) {
+  // Skip fields with Contentstack UID patterns (blt prefix)
+  if (typeof fieldValue === 'string' && fieldValue.startsWith('blt')) {
     return false;
   }
 
-  const textFieldPatterns = [
-    /title/i, /name/i, /heading/i, /headline/i, /subject/i,
-    /description/i, /content/i, /body/i, /text/i, /summary/i,
-    /abstract/i, /excerpt/i, /overview/i, /details/i, /info/i,
-    /message/i, /note/i, /comment/i, /caption/i, /tagline/i,
-    /bio/i, /about/i, /introduction/i, /conclusion/i, /paragraph/i,
-    /article/i, /post/i, /blog/i, /story/i, /narrative/i,
-    /instruction/i, /guide/i, /tutorial/i, /help/i, /faq/i,
-    /product/i, /item/i, /service/i, /feature/i, /benefit/i,
-    /category/i, /tag/i, /keyword/i, /label/i, /brand/i
-  ];
+  // Skip very short text (likely not meaningful content)
+  if (typeof fieldValue === 'string' && fieldValue.trim().length < 15) {
+    return false;
+  }
 
-  const isTextField = textFieldPatterns.some(pattern => pattern.test(fieldName));
+  // Skip timestamp patterns
+  if (typeof fieldValue === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(fieldValue)) {
+    return false;
+  }
 
- 
-  if (isTextField) {
+  // Skip UUID patterns
+  if (typeof fieldValue === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fieldValue)) {
+    return false;
+  }
+
+  // Skip base64 encoded data
+  if (typeof fieldValue === 'string' && /^[A-Za-z0-9+/]+=*$/.test(fieldValue) && fieldValue.length > 100) {
+    return false;
+  }
+
+  // Skip URLs, emails, phone numbers
+  if (typeof fieldValue === 'string') {
+    const urlPattern = /^https?:\/\//i;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phonePattern = /^[\+]?[1-9][\d]{0,15}$/;
+    
+    if (urlPattern.test(fieldValue) || emailPattern.test(fieldValue) || phonePattern.test(fieldValue)) {
+      return false;
+    }
+  }
+
+  // Skip file paths
+  if (typeof fieldValue === 'string' && /^[\/\\]/.test(fieldValue)) {
+    return false;
+  }
+
+  // Include meaningful text content
+  if (typeof fieldValue === "string" && fieldValue.trim().length >= 15) {
     return true;
   }
 
-
-  if (typeof fieldValue === "string" && fieldValue.trim().length > 10) {
-    return true;
-  }
-
+  // Include rich text objects/arrays
   if (typeof fieldValue === "object" && fieldValue !== null) {
     return true;
   }
@@ -116,14 +95,7 @@ function shouldIncludeFieldForEmbeddings(fieldName, fieldValue) {
   return false;
 }
 
-
 function extractTitleAndRTE(entry, contentType = null) {
- 
-  if (contentType) {
-    const extractedText = fieldConfigService.extractTextByCategory(entry, contentType);
-    return extractedText.fullText;
-  }
-
   const parts = [];
 
   const titleFields = ['title', 'name', 'heading', 'headline', 'subject'];
@@ -142,19 +114,11 @@ function extractTitleAndRTE(entry, contentType = null) {
     }
   }
 
- 
-  for (const [key, value] of Object.entries(entry)) {
-    if (shouldIncludeFieldForEmbeddings(key, value)) {
-      if (typeof value === "string" && value.trim().length > 10) {
-        const cleaned = extractTextFromField(value);
-        if (cleaned && !parts.includes(cleaned)) { 
-          parts.push(cleaned);
-        }
-      } else if (typeof value === "object" && value !== null) {
-        const extracted = extractTextFromField(value);
-        if (extracted && !parts.includes(extracted)) { 
-          parts.push(extracted);
-        }
+  for (const [fieldName, fieldValue] of Object.entries(entry)) {
+    if (shouldIncludeFieldForEmbeddings(fieldName, fieldValue, contentType)) {
+      const extractedText = extractTextFromField(fieldValue);
+      if (extractedText && extractedText.length > 0) {
+        parts.push(extractedText);
       }
     }
   }
@@ -162,44 +126,50 @@ function extractTitleAndRTE(entry, contentType = null) {
   return parts.join(" ").trim();
 }
 
-function extractStructuredMetadata(entry, excludeKeys = new Set()) {
-  const defaultExcludes = new Set([
-    "title",
-    "uid",
-    "_version",
-    "locale",
-    "publish_details",
-    "created_at",
-    "updated_at",
-    "created_by",
-    "updated_by",
-    "user",
-    "environment",
-    "ACL",
-    "time",
-    "date",
-  ]);
-
-  const finalExcludes = new Set([...defaultExcludes, ...excludeKeys]);
-  const metadata = {};
-
-  for (const key in entry) {
-    if (!finalExcludes.has(key)) {
-      const value = entry[key];
-      if (
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean"
-      ) {
-        metadata[key] = value;
-      }
-    }
+function intelligentTextTruncation(text, maxLength = 2000) {
+  if (!text || text.length <= maxLength) {
+    return text;
   }
 
-  return metadata;
+  // Filter out metadata patterns before truncation
+  const sentences = text.split(/[.!?]+/).filter(sentence => {
+    const trimmed = sentence.trim();
+    
+    // Skip sentences with UIDs
+    if (/blt[a-zA-Z0-9]{16}/.test(trimmed)) {
+      return false;
+    }
+    
+    // Skip sentences with timestamps
+    if (/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed)) {
+      return false;
+    }
+    
+    // Skip sentences with system field patterns
+    if (/(created_at|updated_at|publish_details|_version|ACL)/.test(trimmed)) {
+      return false;
+    }
+    
+    // Keep meaningful sentences
+    return trimmed.length > 10;
+  });
+
+  let result = '';
+  for (const sentence of sentences) {
+    const potential = result + sentence + '. ';
+    if (potential.length > maxLength) {
+      break;
+    }
+    result = potential;
+  }
+
+  return result.trim() || text.substring(0, maxLength);
 }
 
 module.exports = {
+  cleanHtml,
+  extractTextFromField,
+  shouldIncludeFieldForEmbeddings,
   extractTitleAndRTE,
-  extractStructuredMetadata,
+  intelligentTextTruncation
 };

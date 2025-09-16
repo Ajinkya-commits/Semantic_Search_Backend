@@ -1,4 +1,3 @@
-const logger = require('../config/logger');
 const imageEmbeddingService = require('../services/imageEmbeddingService');
 
 class ImageExtractor {
@@ -20,7 +19,7 @@ class ImageExtractor {
     // Deduplicate URLs
     const uniqueUrls = this.deduplicateImages(imageUrls);
     
-    logger.debug('Extracted image URLs from entry', {
+    console.log('Extracted image URLs from entry', {
       entryUid: entry.uid,
       totalFound: imageUrls.length,
       uniqueUrls: uniqueUrls.length,

@@ -1,4 +1,3 @@
-const logger = require('../../../config/logger');
 const { AppError, asyncHandler } = require('../../../shared/middleware/errorHandler');
 const imageEmbeddingService = require('../../../services/imageEmbeddingService');
 const vectorSearchService = require('../../../services/vectorSearchService');
@@ -37,7 +36,7 @@ class ImageSearchController {
       throw new AppError('Image URL must be provided', 400);
     }
 
-    logger.info('Image search request', { imageUrl, limit, threshold });
+    console.log('Image search request', { imageUrl, limit, threshold });
 
     // Get stackApiKey from active OAuth token in MongoDB
     const oauthToken = await OAuthToken.findOne({ 
@@ -64,7 +63,7 @@ class ImageSearchController {
     );
 
     // Debug logging to understand ranking issues
-    logger.info('Image search results analysis', {
+    console.log('Image search results analysis', {
       queryImage: imageUrl,
       totalResults: results.length,
       topResults: results.slice(0, 5).map(r => ({
@@ -104,7 +103,7 @@ class ImageSearchController {
 
     const { limit = 10, threshold = 0.0, filters = {} } = req.body;
 
-    logger.info('Uploaded image search request', { 
+    console.log('Uploaded image search request', { 
       filename: req.file.originalname,
       size: req.file.size,
       limit, 
@@ -145,7 +144,7 @@ class ImageSearchController {
     const nonCatImages = results.filter(result => result.type !== 'cat');
     const topNonCatImages = nonCatImages.slice(0, 3);
 
-    logger.info('Image search completed', {
+    console.log('Image search completed', {
       uploadedImage: {
         filename: req.file.originalname,
         size: req.file.size,

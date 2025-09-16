@@ -1,4 +1,3 @@
-const logger = require('../../../config/logger');
 const { AppError, asyncHandler } = require('../../../shared/middleware/errorHandler');
 const vectorSearchService = require('../../../services/vectorSearchService');
 const SearchLog = require('../../../models/SearchLog');
@@ -38,7 +37,7 @@ class SearchAnalyticsController {
       });
 
     } catch (error) {
-      logger.error('Failed to get search analytics', {
+      console.error('Failed to get search analytics', {
         error: error.message,
         stackApiKey,
         days,
@@ -66,7 +65,7 @@ class SearchAnalyticsController {
       });
 
     } catch (error) {
-      logger.error('Failed to get search stats', { error: error.message });
+      console.error('Failed to get search stats', { error: error.message });
       throw error;
     }
   });

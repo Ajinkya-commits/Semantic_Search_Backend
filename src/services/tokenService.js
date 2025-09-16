@@ -1,5 +1,4 @@
 const OAuthToken = require("../models/OAuthToken");
-const logger = require("../config/logger");
 const { AppError } = require("../shared/middleware/errorHandler");
 
 class TokenService {
@@ -33,7 +32,7 @@ class TokenService {
         existingToken.lastUsed = new Date();
 
         await existingToken.save();
-        logger.info(`Updated OAuth token for stack: ${stackApiKey}`);
+        console.info(`Updated OAuth token for stack: ${stackApiKey}`);
         return existingToken;
       } else {
         // Create new token
@@ -47,11 +46,11 @@ class TokenService {
         });
 
         await newToken.save();
-        logger.info(`Created new OAuth token for stack: ${stackApiKey}`);
+        console.info(`Created new OAuth token for stack: ${stackApiKey}`);
         return newToken;
       }
     } catch (error) {
-      logger.error("Failed to save or update token", {
+      console.error("Failed to save or update token", {
         error: error.message,
         stackApiKey: tokenData?.stackApiKey,
       });
@@ -85,7 +84,7 @@ class TokenService {
       if (error instanceof AppError) {
         throw error;
       }
-      logger.error("Failed to get valid access token", {
+      console.error("Failed to get valid access token", {
         stackApiKey,
         error: error.message,
       });
@@ -108,10 +107,10 @@ class TokenService {
       // For now, we'll just return the existing token
       // In a real implementation, you'd call the Contentstack token refresh endpoint
 
-      logger.warn(`Token refresh not implemented for stack: ${stackApiKey}`);
+      console.warn(`Token refresh not implemented for stack: ${stackApiKey}`);
       return token;
     } catch (error) {
-      logger.error("Failed to refresh access token", {
+      console.error("Failed to refresh access token", {
         stackApiKey,
         error: error.message,
       });
@@ -127,14 +126,14 @@ class TokenService {
       );
 
       if (result.modifiedCount > 0) {
-        logger.info(`Deactivated token for stack: ${stackApiKey}`);
+        console.info(`Deactivated token for stack: ${stackApiKey}`);
         return true;
       } else {
-        logger.warn(`No token found to deactivate for stack: ${stackApiKey}`);
+        console.warn(`No token found to deactivate for stack: ${stackApiKey}`);
         return false;
       }
     } catch (error) {
-      logger.error("Failed to deactivate token", {
+      console.error("Failed to deactivate token", {
         stackApiKey,
         error: error.message,
       });
@@ -146,7 +145,7 @@ class TokenService {
     try {
       return await OAuthToken.findActiveTokens();
     } catch (error) {
-      logger.error("Failed to get active tokens", {
+      console.error("Failed to get active tokens", {
         error: error.message,
       });
       throw error;
@@ -157,7 +156,7 @@ class TokenService {
     try {
       return await OAuthToken.deactivateExpiredTokens();
     } catch (error) {
-      logger.error("Failed to cleanup expired tokens", {
+      console.error("Failed to cleanup expired tokens", {
         error: error.message,
       });
       throw error;

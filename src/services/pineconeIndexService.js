@@ -1,6 +1,5 @@
 const { Pinecone } = require('@pinecone-database/pinecone');
 const config = require('../config');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 
 class PineconeIndexService {
@@ -17,16 +16,16 @@ class PineconeIndexService {
     }
 
     try {
-      logger.info('Initializing Pinecone connection for index management...');
+      console.info('Initializing Pinecone connection for index management...');
       
       this.pinecone = new Pinecone({ 
         apiKey: this.apiKey,
       });
       
       this.isInitialized = true;
-      logger.info('✅ Pinecone connection initialized for index management');
+      console.info('✅ Pinecone connection initialized for index management');
     } catch (error) {
-      logger.error('❌ Failed to initialize Pinecone connection', {
+      console.error('❌ Failed to initialize Pinecone connection', {
         error: error.message,
       });
       throw new AppError('Failed to initialize Pinecone index service', 500);
@@ -57,7 +56,7 @@ class PineconeIndexService {
       const indexList = await this.pinecone.listIndexes();
       return indexList.indexes.some(index => index.name === indexName);
     } catch (error) {
-      logger.error('Failed to check if index exists', {
+      console.error('Failed to check if index exists', {
         indexName,
         error: error.message,
       });
@@ -75,7 +74,7 @@ class PineconeIndexService {
       // Check if index already exists
       const exists = await this.indexExists(indexName);
       if (exists) {
-        logger.info(`Index ${indexName} already exists for stack ${stackApiKey}`);
+        console.info(`Index ${indexName} already exists for stack ${stackApiKey}`);
         return {
           success: true,
           indexName,
@@ -84,7 +83,7 @@ class PineconeIndexService {
         };
       }
 
-      logger.info(`Creating new Pinecone index: ${indexName} for stack: ${stackApiKey}`);
+      console.info(`Creating new Pinecone index: ${indexName} for stack: ${stackApiKey}`);
 
       // Create the index with appropriate configuration
       await this.pinecone.createIndex({
@@ -102,7 +101,7 @@ class PineconeIndexService {
       // Wait for index to be ready
       await this.waitForIndexReady(indexName);
 
-      logger.info(`✅ Successfully created index: ${indexName} for stack: ${stackApiKey}`);
+      console.info(`✅ Successfully created index: ${indexName} for stack: ${stackApiKey}`);
 
       return {
         success: true,
@@ -111,7 +110,7 @@ class PineconeIndexService {
         created: true,
       };
     } catch (error) {
-      logger.error('Failed to create stack index', {
+      console.error('Failed to create stack index', {
         stackApiKey,
         indexName,
         error: error.message,
@@ -131,14 +130,14 @@ class PineconeIndexService {
         const index = indexList.indexes.find(idx => idx.name === indexName);
         
         if (index && index.status?.ready) {
-          logger.info(`Index ${indexName} is ready`);
+          console.info(`Index ${indexName} is ready`);
           return;
         }
         
-        logger.debug(`Waiting for index ${indexName} to be ready...`);
+        console.debug(`Waiting for index ${indexName} to be ready...`);
         await new Promise(resolve => setTimeout(resolve, checkInterval));
       } catch (error) {
-        logger.error('Error checking index status', {
+        console.error('Error checking index status', {
           indexName,
           error: error.message,
         });
@@ -158,7 +157,7 @@ class PineconeIndexService {
     try {
       const exists = await this.indexExists(indexName);
       if (!exists) {
-        logger.info(`Index ${indexName} does not exist for stack ${stackApiKey}`);
+        console.info(`Index ${indexName} does not exist for stack ${stackApiKey}`);
         return {
           success: true,
           indexName,
@@ -167,11 +166,11 @@ class PineconeIndexService {
         };
       }
 
-      logger.info(`Deleting Pinecone index: ${indexName} for stack: ${stackApiKey}`);
+      console.info(`Deleting Pinecone index: ${indexName} for stack: ${stackApiKey}`);
 
       await this.pinecone.deleteIndex(indexName);
 
-      logger.info(`✅ Successfully deleted index: ${indexName} for stack: ${stackApiKey}`);
+      console.info(`✅ Successfully deleted index: ${indexName} for stack: ${stackApiKey}`);
 
       return {
         success: true,
@@ -180,7 +179,7 @@ class PineconeIndexService {
         deleted: true,
       };
     } catch (error) {
-      logger.error('Failed to delete stack index', {
+      console.error('Failed to delete stack index', {
         stackApiKey,
         indexName,
         error: error.message,
@@ -217,7 +216,7 @@ class PineconeIndexService {
         createdAt: index.createdAt,
       };
     } catch (error) {
-      logger.error('Failed to get stack index info', {
+      console.error('Failed to get stack index info', {
         stackApiKey,
         indexName,
         error: error.message,
@@ -244,7 +243,7 @@ class PineconeIndexService {
         stackApiKey: this.extractStackApiKeyFromIndexName(index.name),
       }));
     } catch (error) {
-      logger.error('Failed to list semantic search indexes', {
+      console.error('Failed to list semantic search indexes', {
         error: error.message,
       });
       throw new AppError('Failed to list semantic search indexes', 500);

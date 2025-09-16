@@ -1,6 +1,5 @@
 const axios = require('axios');
 const config = require('../config');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 const OAuthToken = require('../models/OAuthToken');
 
@@ -13,7 +12,7 @@ class TokenRefreshService {
 
   async refreshAccessToken(refreshToken, stackApiKey) {
     try {
-      logger.info('Refreshing access token', { stackApiKey });
+      console.info('Refreshing access token', { stackApiKey });
 
       const response = await axios.post(`${this.baseUrl.replace('/v3', '')}/oauth/token`, {
         grant_type: 'refresh_token',
@@ -37,7 +36,7 @@ class TokenRefreshService {
       const expiresIn = tokenData.expires_in || 3600; // 1 hour in seconds
       const expiresAt = new Date(Date.now() + (expiresIn * 1000));
 
-      logger.info('Successfully refreshed access token', {
+      console.info('Successfully refreshed access token', {
         stackApiKey,
         expiresAt: expiresAt.toISOString(),
       });
@@ -49,7 +48,7 @@ class TokenRefreshService {
         tokenType: tokenData.token_type || 'Bearer',
       };
     } catch (error) {
-      logger.error('Failed to refresh access token', {
+      console.error('Failed to refresh access token', {
         stackApiKey,
         error: error.message,
         status: error.response?.status,
@@ -86,14 +85,14 @@ class TokenRefreshService {
         throw new AppError(`No active token found for stack: ${stackApiKey}`, 404);
       }
 
-      logger.info('Successfully updated token in database', {
+      console.info('Successfully updated token in database', {
         stackApiKey,
         expiresAt: updatedToken.expiresAt.toISOString(),
       });
 
       return updatedToken;
     } catch (error) {
-      logger.error('Failed to update token in database', {
+      console.error('Failed to update token in database', {
         stackApiKey,
         error: error.message,
       });
@@ -121,7 +120,7 @@ class TokenRefreshService {
       if (error instanceof AppError) {
         throw error;
       }
-      logger.error('Failed to refresh and update token', {
+      console.error('Failed to refresh and update token', {
         stackApiKey,
         error: error.message,
       });
@@ -140,12 +139,12 @@ class TokenRefreshService {
 
       // If token is inactive, try to refresh it
       if (!token.isActive) {
-        logger.info('Token is inactive, attempting to refresh', { stackApiKey });
+        console.info('Token is inactive, attempting to refresh', { stackApiKey });
         try {
           const refreshedToken = await this.refreshAndUpdateToken(stackApiKey);
           return refreshedToken.accessToken;
         } catch (refreshError) {
-          logger.error('Failed to refresh inactive token', {
+          console.error('Failed to refresh inactive token', {
             stackApiKey,
             error: refreshError.message,
           });
@@ -158,7 +157,7 @@ class TokenRefreshService {
       const isExpiredOrExpiringSoon = token.expiresAt <= fiveMinutesFromNow;
 
       if (isExpiredOrExpiringSoon) {
-        logger.info('Token expired or expiring soon, refreshing', {
+        console.info('Token expired or expiring soon, refreshing', {
           stackApiKey,
           expiresAt: token.expiresAt.toISOString(),
         });
@@ -168,7 +167,7 @@ class TokenRefreshService {
           const refreshedToken = await this.refreshAndUpdateToken(stackApiKey);
           return refreshedToken.accessToken;
         } catch (refreshError) {
-          logger.error('Failed to refresh expiring token', {
+          console.error('Failed to refresh expiring token', {
             stackApiKey,
             error: refreshError.message,
           });
@@ -188,7 +187,7 @@ class TokenRefreshService {
       if (error instanceof AppError) {
         throw error;
       }
-      logger.error('Failed to get valid access token', {
+      console.error('Failed to get valid access token', {
         stackApiKey,
         error: error.message,
       });
@@ -198,7 +197,7 @@ class TokenRefreshService {
 
   async refreshAllExpiredTokens() {
     try {
-      logger.info('Starting refresh of all expired or expiring tokens');
+      console.info('Starting refresh of all expired or expiring tokens');
 
       // Find tokens that are expired or will expire within 5 minutes
       const fiveMinutesFromNow = new Date(Date.now() + (5 * 60 * 1000));
@@ -218,24 +217,24 @@ class TokenRefreshService {
         try {
           await this.refreshAndUpdateToken(token.stackApiKey);
           results.refreshed++;
-          logger.info('Successfully refreshed token', { stackApiKey: token.stackApiKey });
+          console.info('Successfully refreshed token', { stackApiKey: token.stackApiKey });
         } catch (error) {
           results.failed++;
           results.errors.push({
             stackApiKey: token.stackApiKey,
             error: error.message,
           });
-          logger.error('Failed to refresh token', {
+          console.error('Failed to refresh token', {
             stackApiKey: token.stackApiKey,
             error: error.message,
           });
         }
       }
 
-      logger.info('Completed refresh of expired tokens', results);
+      console.info('Completed refresh of expired tokens', results);
       return results;
     } catch (error) {
-      logger.error('Failed to refresh expired tokens', { error: error.message });
+      console.error('Failed to refresh expired tokens', { error: error.message });
       throw new AppError('Failed to refresh expired tokens', 500);
     }
   }

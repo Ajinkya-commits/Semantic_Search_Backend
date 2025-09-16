@@ -1,7 +1,6 @@
 const { CohereClient } = require('cohere-ai');
 const axios = require('axios');
 const config = require('../config');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 
 class ImageEmbeddingService {
@@ -26,12 +25,12 @@ class ImageEmbeddingService {
     // Check if image format is supported by Cohere
     if (!this.isSupportedImageFormat(imageUrl)) {
       const format = this.getImageFormat(imageUrl);
-      logger.warn('Skipping unsupported image format', { imageUrl, format });
+      console.warn('Skipping unsupported image format', { imageUrl, format });
       throw new AppError(`Unsupported image format: ${format}. Cohere supports PNG, JPEG, WebP, and GIF only.`, 400);
     }
 
     try {
-      logger.debug('Generating image embedding with Cohere', { imageUrl });
+      console.debug('Generating image embedding with Cohere', { imageUrl });
 
       // Download and validate image first
       const imageBuffer = await this.downloadImage(imageUrl);
@@ -50,14 +49,14 @@ class ImageEmbeddingService {
 
       const embedding = response.embeddings.float[0];
       
-      logger.debug('Image embedding generated successfully', {
+      console.debug('Image embedding generated successfully', {
         imageUrl,
         embeddingLength: embedding.length,
       });
 
       return embedding;
     } catch (error) {
-      logger.error('Failed to generate image embedding', {
+      console.error('Failed to generate image embedding', {
         imageUrl,
         error: error.message,
         status: error.status,
@@ -91,7 +90,7 @@ class ImageEmbeddingService {
     }
 
     try {
-      logger.debug('Generating image embedding from buffer with Cohere', { 
+      console.debug('Generating image embedding from buffer with Cohere', { 
         bufferSize: imageBuffer.length,
         mimeType 
       });
@@ -109,13 +108,13 @@ class ImageEmbeddingService {
 
       const embedding = response.embeddings.float[0];
       
-      logger.debug('Image embedding generated successfully from buffer', {
+      console.debug('Image embedding generated successfully from buffer', {
         embeddingLength: embedding.length,
       });
 
       return embedding;
     } catch (error) {
-      logger.error('Failed to generate image embedding from buffer', {
+      console.error('Failed to generate image embedding from buffer', {
         error: error.message,
         status: error.status,
       });
@@ -174,7 +173,7 @@ class ImageEmbeddingService {
 
       return Buffer.from(response.data);
     } catch (error) {
-      logger.error('Failed to download image', {
+      console.error('Failed to download image', {
         imageUrl,
         error: error.message,
         status: error.response?.status,
@@ -257,7 +256,7 @@ class ImageEmbeddingService {
       // For Contentstack URLs without extensions, return null (will be handled as supported)
       return null;
     } catch (error) {
-      logger.warn('Error detecting image format', { imageUrl, error: error.message });
+      console.warn('Error detecting image format', { imageUrl, error: error.message });
       return null;
     }
   }
@@ -285,7 +284,7 @@ class ImageEmbeddingService {
           // Check if image format is supported before processing
           if (!this.isSupportedImageFormat(imageUrl)) {
             const format = this.getImageFormat(imageUrl);
-            logger.warn('Skipping unsupported image format', { imageUrl, format });
+            console.warn('Skipping unsupported image format', { imageUrl, format });
             errors.push({
               imageUrl,
               error: `Unsupported image format: ${format}. Cohere supports PNG, JPEG, WebP, and GIF only.`
@@ -296,7 +295,7 @@ class ImageEmbeddingService {
           const embedding = await this.generateImageEmbedding(imageUrl);
           return { url: imageUrl, embedding };
         } catch (error) {
-          logger.warn('Failed to process image in batch', { imageUrl, error: error.message });
+          console.warn('Failed to process image in batch', { imageUrl, error: error.message });
           errors.push({ imageUrl, error: error.message });
           return null;
         }
@@ -311,7 +310,7 @@ class ImageEmbeddingService {
       }
     }
 
-    logger.info('Batch image embedding completed', {
+    console.info('Batch image embedding completed', {
       total: imageUrls.length,
       successful: results.length,
       failed: errors.length,

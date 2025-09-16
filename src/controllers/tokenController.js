@@ -1,6 +1,5 @@
 const tokenRefreshService = require('../services/tokenRefreshService');
 const { AppError } = require('../shared/middleware/errorHandler');
-const logger = require('../config/logger');
 
 class TokenController {
   /**
@@ -17,7 +16,7 @@ class TokenController {
         throw new AppError('Stack API key is required', 400);
       }
 
-      logger.info('Refreshing token for stack', { stackApiKey });
+      console.info('Refreshing token for stack', { stackApiKey });
 
       const refreshedToken = await tokenRefreshService.refreshAndUpdateToken(stackApiKey);
 
@@ -31,7 +30,7 @@ class TokenController {
         },
       });
     } catch (error) {
-      logger.error('Failed to refresh token', {
+      console.error('Failed to refresh token', {
         stackApiKey: req.params.stackApiKey,
         error: error.message,
       });
@@ -47,7 +46,7 @@ class TokenController {
    */
   async refreshAllTokens(req, res, next) {
     try {
-      logger.info('Refreshing all expired or expiring tokens');
+      console.info('Refreshing all expired or expiring tokens');
 
       const results = await tokenRefreshService.refreshAllExpiredTokens();
 
@@ -57,7 +56,7 @@ class TokenController {
         data: results,
       });
     } catch (error) {
-      logger.error('Failed to refresh all tokens', { error: error.message });
+      console.error('Failed to refresh all tokens', { error: error.message });
       next(error);
     }
   }
@@ -101,7 +100,7 @@ class TokenController {
         },
       });
     } catch (error) {
-      logger.error('Failed to get token status', {
+      console.error('Failed to get token status', {
         stackApiKey: req.params.stackApiKey,
         error: error.message,
       });
@@ -147,7 +146,7 @@ class TokenController {
         },
       });
     } catch (error) {
-      logger.error('Failed to get all tokens status', { error: error.message });
+      console.error('Failed to get all tokens status', { error: error.message });
       next(error);
     }
   }

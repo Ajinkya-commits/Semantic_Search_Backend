@@ -1,4 +1,3 @@
-const logger = require('../../config/logger');
 const contentstackService = require('../../services/contentstackService');
 const OAuthToken = require('../../models/OAuthToken');
 const SearchLog = require('../../models/SearchLog');
@@ -36,7 +35,7 @@ async function enrichResultsWithContentstackData(results, stackApiKey, environme
           });
         }
       } catch (error) {
-        logger.warn(`Failed to enrich result ${result.id}`, {
+        console.warn(`Failed to enrich result ${result.id}`, {
           error: error.message,
         });
       }
@@ -44,7 +43,7 @@ async function enrichResultsWithContentstackData(results, stackApiKey, environme
 
     return enrichedResults;
   } catch (error) {
-    logger.error('Failed to enrich results with Contentstack data', {
+    console.error('Failed to enrich results with Contentstack data', {
       error: error.message,
     });
     throw error;
@@ -69,7 +68,7 @@ async function logSearch(req, query, resultsCount, filters, responseTime, succes
 
     await searchLog.save();
   } catch (error) {
-    logger.error('Failed to log search', {
+    console.error('Failed to log search', {
       error: error.message,
       query: query ? query.substring(0, 100) : 'N/A',
     });

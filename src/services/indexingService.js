@@ -1,4 +1,3 @@
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 const embeddingsService = require('./embeddingsService');
 const imageEmbeddingService = require('./imageEmbeddingService');
@@ -22,7 +21,7 @@ class IndexingService {
       const enrichedText = extractTitleAndRTE(entry, contentType);
       
       if (!enrichedText || enrichedText.trim().length === 0) {
-        logger.warn(`Entry ${entry.uid} has no text content, skipping indexing`);
+        console.log(`Entry ${entry.uid} has no text content, skipping indexing`);
         return null;
       }
 
@@ -45,7 +44,7 @@ class IndexingService {
         },
       };
     } catch (error) {
-      logger.error(`Failed to prepare entry ${entry.uid} for indexing`, {
+      console.error(`Failed to prepare entry ${entry.uid} for indexing`, {
         error: error.message,
         contentType,
       });
@@ -70,7 +69,7 @@ class IndexingService {
       });
 
       if (images.length === 0) {
-        logger.debug(`Entry ${entry.uid} has no embeddable images`);
+        console.log(`Entry ${entry.uid} has no embeddable images`);
         return [];
       }
 
@@ -88,10 +87,10 @@ class IndexingService {
         }
       }));
 
-      logger.debug(`Prepared ${preparedImages.length} images for indexing from entry ${entry.uid}`);
+      console.log(`Prepared ${preparedImages.length} images for indexing from entry ${entry.uid}`);
       return preparedImages;
     } catch (error) {
-      logger.error(`Failed to prepare images from entry ${entry.uid}`, {
+      console.error(`Failed to prepare images from entry ${entry.uid}`, {
         error: error.message,
         contentType,
       });
@@ -101,7 +100,7 @@ class IndexingService {
 
   async indexAllEntries(stackApiKey, environment, options = {}) {
     try {
-      logger.info('Starting full indexing process', {
+      console.log('Starting full indexing process', {
         stackApiKey,
         environment,
         options,
@@ -122,7 +121,7 @@ class IndexingService {
       );
 
       if (!allEntries || allEntries.length === 0) {
-        logger.warn('No entries found to index', { stackApiKey, environment });
+        console.log('No entries found to index', { stackApiKey, environment });
         return {
           success: true,
           indexed: 0,
@@ -142,7 +141,7 @@ class IndexingService {
       for (let i = 0; i < allEntries.length; i += this.batchSize) {
         const batch = allEntries.slice(i, i + this.batchSize);
         
-        logger.info(`Processing batch ${Math.floor(i / this.batchSize) + 1}/${Math.ceil(allEntries.length / this.batchSize)}`, {
+        console.log(`Processing batch ${Math.floor(i / this.batchSize) + 1}/${Math.ceil(allEntries.length / this.batchSize)}`, {
           batchSize: batch.length,
           totalEntries: allEntries.length,
         });
@@ -166,7 +165,7 @@ class IndexingService {
                 contentType: contentType,
                 error: error.message,
               });
-              logger.error(`Failed to index entry ${entry.uid}`, {
+              console.error(`Failed to index entry ${entry.uid}`, {
                 error: error.message,
                 contentType: contentType,
               });
@@ -189,11 +188,11 @@ class IndexingService {
         errorsList: errorsList.slice(0, 10),
       };
 
-      logger.info('Indexing process completed', result);
+      console.log('Indexing process completed', result);
       return result;
 
     } catch (error) {
-      logger.error('Failed to index all entries', {
+      console.error('Failed to index all entries', {
         stackApiKey,
         environment,
         error: error.message,
@@ -236,7 +235,7 @@ class IndexingService {
             stackApiKey
           );
           textIndexed = true;
-          logger.info(`Indexed entry: ${preparedEntry.uid}`);
+          console.log(`Indexed entry: ${preparedEntry.uid}`);
         }
       }
 
@@ -259,16 +258,16 @@ class IndexingService {
               stackApiKey
             );
             imagesIndexed++;
-            logger.info(`Indexed image: ${imageData.id}`);
+            console.log(`Indexed image: ${imageData.id}`);
           }
         }
       }
 
-      logger.debug(`Indexed entry: ${entry.uid} (text: ${textIndexed}, images: ${imagesIndexed})`);
+      console.log(`Indexed entry: ${entry.uid} (text: ${textIndexed}, images: ${imagesIndexed})`);
       
       return { textIndexed, imagesIndexed };
     } catch (error) {
-      logger.error(`Failed to index entry with images ${entry.uid}`, {
+      console.error(`Failed to index entry with images ${entry.uid}`, {
         error: error.message,
         contentType,
         stackApiKey,
@@ -288,10 +287,10 @@ class IndexingService {
         await vectorSearchService.setStackIndex(stackApiKey);
       }
       await vectorSearchService.deleteEntry(entryUid, stackApiKey);
-      logger.info(`🗑️ Removed entry from index: ${entryUid}`);
+      console.log(`🗑️ Removed entry from index: ${entryUid}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to remove entry ${entryUid} from index`, {
+      console.error(`Failed to remove entry ${entryUid} from index`, {
         error: error.message,
       });
       throw error;
@@ -303,7 +302,7 @@ class IndexingService {
       await this.removeEntry(entry.uid);
       return await this.indexEntry(entry, contentType);
     } catch (error) {
-      logger.error(`Failed to update entry ${entry.uid} in index`, {
+      console.error(`Failed to update entry ${entry.uid} in index`, {
         error: error.message,
         contentType,
       });

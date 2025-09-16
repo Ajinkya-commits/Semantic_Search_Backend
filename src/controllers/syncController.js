@@ -1,7 +1,6 @@
-const logger = require('../config/logger');
 const { AppError, asyncHandler } = require('../shared/middleware/errorHandler');
-const indexingService = require('../services/indexingService');
 const contentstackService = require('../services/contentstackService');
+const indexingService = require('../services/indexingService');
 const vectorSearchService = require('../services/vectorSearchService');
 
 class SyncController {
@@ -14,7 +13,7 @@ class SyncController {
     const stackApiKey = req.stackApiKey; // Now comes from middleware validation
 
     try {
-      logger.info('Starting full indexing', {
+      console.log('Starting full indexing', {
         stackApiKey,
         contentType,
         environment,
@@ -28,7 +27,7 @@ class SyncController {
         { contentType }
       );
 
-      logger.info('Full indexing completed', {
+      console.log('Full indexing completed', {
         stackApiKey,
         results,
       });
@@ -45,7 +44,7 @@ class SyncController {
         },
       });
     } catch (error) {
-      logger.error('Full indexing failed', {
+      console.error('Full indexing failed', {
         stackApiKey,
         error: error.message,
       });
@@ -84,7 +83,7 @@ class SyncController {
       const success = await indexingService.indexEntry(entry, contentType, stackApiKey);
 
       if (success) {
-        logger.info(`Entry indexed successfully: ${entryUid}`);
+        console.log(`Entry indexed successfully: ${entryUid}`);
         res.json({
           status: 'success',
           message: 'Entry indexed successfully',
@@ -110,7 +109,7 @@ class SyncController {
         });
       }
     } catch (error) {
-      logger.error('Entry indexing failed', {
+      console.error('Entry indexing failed', {
         entryUid,
         contentType,
         stackApiKey,
@@ -139,7 +138,7 @@ class SyncController {
       const success = await indexingService.removeEntry(entryUid);
 
       if (success) {
-        logger.info(`Entry removed from index: ${entryUid}`);
+        console.log(`Entry removed from index: ${entryUid}`);
         res.json({
           status: 'success',
           message: 'Entry removed from index',
@@ -153,7 +152,7 @@ class SyncController {
         throw new AppError('Failed to remove entry from index', 500);
       }
     } catch (error) {
-      logger.error('Entry removal failed', {
+      console.error('Entry removal failed', {
         entryUid,
         stackApiKey,
         error: error.message,
@@ -189,7 +188,7 @@ class SyncController {
         // Entry was deleted, remove from index
         await vectorSearchService.setStackIndex(stackApiKey);
         await indexingService.removeEntry(entryUid);
-        logger.info(`Entry deleted, removed from index: ${entryUid}`);
+        console.log(`Entry deleted, removed from index: ${entryUid}`);
         
         res.json({
           status: 'success',
@@ -209,7 +208,7 @@ class SyncController {
       const success = await indexingService.updateEntry(entry, contentType, stackApiKey);
 
       if (success) {
-        logger.info(`Entry updated in index: ${entryUid}`);
+        console.log(`Entry updated in index: ${entryUid}`);
         res.json({
           status: 'success',
           message: 'Entry updated in index',
@@ -235,7 +234,7 @@ class SyncController {
         });
       }
     } catch (error) {
-      logger.error('Entry update failed', {
+      console.error('Entry update failed', {
         entryUid,
         contentType,
         stackApiKey,
@@ -258,7 +257,7 @@ class SyncController {
       // Get index statistics
       const stats = await vectorSearchService.getIndexStats();
 
-      logger.info('Index statistics retrieved', {
+      console.log('Index statistics retrieved', {
         stackApiKey,
         stats,
       });
@@ -272,7 +271,7 @@ class SyncController {
         },
       });
     } catch (error) {
-      logger.error('Failed to get indexing stats', {
+      console.error('Failed to get indexing stats', {
         stackApiKey,
         error: error.message,
       });
@@ -293,7 +292,7 @@ class SyncController {
       // Clear the index
       await vectorSearchService.clearIndex();
 
-      logger.warn(`Index cleared for stack: ${stackApiKey}`);
+      console.log(`Index cleared for stack: ${stackApiKey}`);
 
       res.json({
         status: 'success',
@@ -305,7 +304,7 @@ class SyncController {
         },
       });
     } catch (error) {
-      logger.error('Failed to clear index', {
+      console.error('Failed to clear index', {
         stackApiKey,
         error: error.message,
       });

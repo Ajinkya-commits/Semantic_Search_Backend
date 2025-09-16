@@ -1,7 +1,7 @@
-const logger = require('../../../config/logger');
 const { AppError, asyncHandler } = require('../../../shared/middleware/errorHandler');
 const OAuthToken = require('../../../models/OAuthToken');
 const tokenService = require('../../../services/tokenService');
+const config = require('../../../config');
 
 class AuthController {
   /**
@@ -18,7 +18,7 @@ class AuthController {
       });
 
     } catch (error) {
-      logger.error('Failed to initiate OAuth', { error: error.message });
+      console.error('Failed to initiate OAuth', { error: error.message });
       throw error;
     }
   });
@@ -42,7 +42,7 @@ class AuthController {
       });
 
     } catch (error) {
-      logger.error('OAuth callback failed', { error: error.message });
+      console.error('OAuth callback failed', { error: error.message });
       throw error;
     }
   });
@@ -67,7 +67,7 @@ class AuthController {
       });
 
     } catch (error) {
-      logger.error('Token refresh failed', { error: error.message, stackApiKey });
+      console.error('Token refresh failed', { error: error.message, stackApiKey });
       throw error;
     }
   });
@@ -95,7 +95,7 @@ class AuthController {
       });
 
     } catch (error) {
-      logger.error('Failed to get active tokens', { error: error.message });
+      console.error('Failed to get active tokens', { error: error.message });
       throw error;
     }
   });
@@ -120,7 +120,7 @@ class AuthController {
       });
 
     } catch (error) {
-      logger.error('Token revocation failed', { error: error.message, stackApiKey });
+      console.error('Token revocation failed', { error: error.message, stackApiKey });
       throw error;
     }
   });

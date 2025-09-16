@@ -1,64 +1,81 @@
 const mongoose = require('mongoose');
 const config = require('../config');
-const logger = require('../config/logger');
 
 class DatabaseConnection {
   constructor() {
-    this.isConnected = false;
     this.connection = null;
+    this.isConnected = false;
   }
 
   async connect() {
     try {
       if (this.isConnected) {
-        logger.info('Database already connected');
-        return;
+        console.log('Database already connected');
+        return this.connection;
       }
 
-      logger.info('Connecting to MongoDB...');
-      
-      this.connection = await mongoose.connect(config.database.mongoUri, {
-        maxPoolSize: 10,
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 45000,
+      console.log('Connecting to MongoDB...', {
+        uri: config.database.mongoUri.replace(/\/\/.*@/, '//***:***@'), // Hide credentials
       });
-      
-      this.isConnected = true;
-      logger.info('✅ MongoDB connected successfully');
 
+      this.connection = await mongoose.connect(config.database.mongoUri, config.database.options);
+      this.isConnected = true;
+
+      console.log('✅ MongoDB connected successfully');
+
+      // Handle connection events
       mongoose.connection.on('error', (error) => {
-        logger.error('MongoDB connection error:', error);
+        console.error('MongoDB connection error:', error);
         this.isConnected = false;
       });
 
       mongoose.connection.on('disconnected', () => {
-        logger.warn('MongoDB disconnected');
+        console.warn('MongoDB disconnected');
         this.isConnected = false;
       });
 
       mongoose.connection.on('reconnected', () => {
-        logger.info('MongoDB reconnected');
+        console.log('MongoDB reconnected');
         this.isConnected = true;
       });
 
       process.on('SIGINT', this.gracefulShutdown.bind(this));
       process.on('SIGTERM', this.gracefulShutdown.bind(this));
 
+      return this.connection;
     } catch (error) {
-      logger.error('❌ MongoDB connection failed:', error);
+      console.error('Failed to connect to MongoDB:', {
+        error: error.message,
+        uri: config.database.mongoUri.replace(/\/\/.*@/, '//***:***@'),
+      });
+      throw error;
+    }
+  }
+
+  async disconnect() {
+    try {
+      if (!this.isConnected) {
+        console.log('Database not connected');
+        return;
+      }
+
+      await mongoose.disconnect();
+      this.isConnected = false;
+      console.log('MongoDB disconnected');
+    } catch (error) {
+      console.error('Error disconnecting from MongoDB:', error);
       throw error;
     }
   }
 
   async gracefulShutdown() {
     try {
-      logger.info('Shutting down database connection...');
-      await mongoose.connection.close();
-      this.isConnected = false;
-      logger.info('Database connection closed');
+      console.log('Gracefully shutting down database connection...');
+      await this.disconnect();
+      console.log('Database connection closed');
       process.exit(0);
     } catch (error) {
-      logger.error('Error during database shutdown:', error);
+      console.error('Error during graceful database shutdown:', error);
       process.exit(1);
     }
   }
@@ -69,6 +86,16 @@ class DatabaseConnection {
 
   isConnectedToDatabase() {
     return this.isConnected && mongoose.connection.readyState === 1;
+  }
+
+  getStatus() {
+    return {
+      isConnected: this.isConnected,
+      readyState: mongoose.connection.readyState,
+      host: mongoose.connection.host,
+      port: mongoose.connection.port,
+      name: mongoose.connection.name,
+    };
   }
 }
 

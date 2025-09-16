@@ -1,6 +1,5 @@
 const axios = require('axios');
 const config = require('../config');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 
 class RerankerService {
@@ -24,7 +23,7 @@ class RerankerService {
     }
 
     if (!Array.isArray(results) || results.length === 0) {
-      logger.warn('No results to rerank');
+      console.log('No results to rerank');
       return [];
     }
 
@@ -37,7 +36,7 @@ class RerankerService {
     const resultsToRerank = results.slice(0, maxRerankResults);
 
     try {
-      logger.debug('Reranking results', {
+      console.log('Reranking results', {
         queryLength: query.length,
         resultsCount: resultsToRerank.length,
         topK,
@@ -79,7 +78,7 @@ class RerankerService {
         };
       });
 
-      logger.debug('Reranking completed', {
+      console.log('Reranking completed', {
         originalCount: resultsToRerank.length,
         rerankedCount: rerankedResults.length,
         topRerankScore: rerankedResults[0]?.rerankScore || 0,
@@ -87,7 +86,7 @@ class RerankerService {
 
       return rerankedResults;
     } catch (error) {
-      logger.error('Reranking failed', {
+      console.error('Reranking failed', {
         error: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -102,7 +101,7 @@ class RerankerService {
       }
 
       // If reranking fails, return original results without rerank scores
-      logger.warn('Reranking failed, returning original results');
+      console.log('Reranking failed, returning original results');
       return resultsToRerank.slice(0, topK).map(result => ({
         ...result,
         rerankScore: null,
@@ -151,14 +150,14 @@ class RerankerService {
       // Sort by combined score
       combinedResults.sort((a, b) => b.combinedScore - a.combinedScore);
 
-      logger.debug('Combined scoring completed', {
+      console.log('Combined scoring completed', {
         topCombinedScore: combinedResults[0]?.combinedScore || 0,
         weights: finalWeights,
       });
 
       return combinedResults.slice(0, topK);
     } catch (error) {
-      logger.error('Combined scoring failed', { error: error.message });
+      console.error('Combined scoring failed', { error: error.message });
       
       // Fallback to original results
       return results.slice(0, topK).map(result => ({

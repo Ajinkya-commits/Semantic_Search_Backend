@@ -3,17 +3,6 @@ const router = express.Router();
 const configController = require('../controllers/configController');
 const { authenticateStack } = require('../../../shared/middleware/auth');
 
-// Field configuration routes
-router.get('/fields', 
-  authenticateStack, 
-  configController.getFieldConfigs
-);
-
-router.post('/fields', 
-  authenticateStack, 
-  configController.updateFieldConfigs
-);
-
 // System configuration routes
 router.get('/system', configController.getSystemConfig);
 router.post('/system', configController.updateSystemConfig);

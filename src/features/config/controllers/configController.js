@@ -1,74 +1,8 @@
-const logger = require('../../../config/logger');
 const { AppError, asyncHandler } = require('../../../shared/middleware/errorHandler');
-const FieldConfig = require('../../../models/FieldConfig');
 const OAuthToken = require('../../../models/OAuthToken');
 const contentstackService = require('../../../services/contentstackService');
 
 class ConfigController {
-  /**
-   * Get field configurations for a stack
-   */
-  getFieldConfigs = asyncHandler(async (req, res) => {
-    const stackApiKey = req.stackApiKey;
-
-    try {
-      const fieldConfigs = await FieldConfig.find({ stackApiKey });
-      
-      res.json({
-        success: true,
-        fieldConfigs,
-        stackApiKey
-      });
-
-    } catch (error) {
-      logger.error('Failed to get field configs', { error: error.message, stackApiKey });
-      throw error;
-    }
-  });
-
-  /**
-   * Update field configurations
-   */
-  updateFieldConfigs = asyncHandler(async (req, res) => {
-    const stackApiKey = req.stackApiKey;
-    const { configs } = req.body;
-
-    if (!configs || !Array.isArray(configs)) {
-      throw new AppError('Field configs array is required', 400);
-    }
-
-    try {
-      const results = [];
-
-      for (const config of configs) {
-        const { contentType, fieldUid, includeInEmbedding, weight } = config;
-
-        const fieldConfig = await FieldConfig.findOneAndUpdate(
-          { stackApiKey, contentType, fieldUid },
-          { 
-            includeInEmbedding: Boolean(includeInEmbedding),
-            weight: parseFloat(weight) || 1.0,
-            updatedAt: new Date()
-          },
-          { upsert: true, new: true }
-        );
-
-        results.push(fieldConfig);
-      }
-
-      res.json({
-        success: true,
-        message: 'Field configurations updated successfully',
-        updatedConfigs: results.length,
-        configs: results
-      });
-
-    } catch (error) {
-      logger.error('Failed to update field configs', { error: error.message, stackApiKey });
-      throw error;
-    }
-  });
-
   /**
    * Get system configuration
    */
@@ -97,7 +31,7 @@ class ConfigController {
       });
 
     } catch (error) {
-      logger.error('Failed to get system config', { error: error.message });
+      console.error('Failed to get system config', { error: error.message });
       throw error;
     }
   });
@@ -116,7 +50,7 @@ class ConfigController {
       // In a real implementation, you'd save this to a database or config file
       // For now, we'll just validate and return the config
       
-      logger.info('System configuration update requested', { config });
+      console.log('System configuration update requested', { config });
 
       res.json({
         success: true,
@@ -125,7 +59,7 @@ class ConfigController {
       });
 
     } catch (error) {
-      logger.error('Failed to update system config', { error: error.message });
+      console.error('Failed to update system config', { error: error.message });
       throw error;
     }
   });
@@ -149,7 +83,7 @@ class ConfigController {
       });
 
     } catch (error) {
-      logger.error('Failed to get content types', { error: error.message, stackApiKey });
+      console.error('Failed to get content types', { error: error.message, stackApiKey });
       throw error;
     }
   });
@@ -179,7 +113,7 @@ class ConfigController {
       });
 
     } catch (error) {
-      logger.error('Failed to get stack config', { error: error.message });
+      console.error('Failed to get stack config', { error: error.message });
       throw error;
     }
   });

@@ -1,6 +1,5 @@
 const axios = require('axios');
 const config = require('../config');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 const OAuthToken = require('../models/OAuthToken');
 const tokenRefreshService = require('./tokenRefreshService');
@@ -24,7 +23,7 @@ class ContentstackService {
       if (error instanceof AppError) {
         throw error;
       }
-      logger.error('Failed to get valid access token', {
+      console.error('Failed to get valid access token', {
         stackApiKey,
         error: error.message,
       });
@@ -60,7 +59,7 @@ class ContentstackService {
           ...options,
         };
 
-        logger.debug('Making Contentstack API request', {
+        console.debug('Making Contentstack API request', {
           endpoint,
           method: requestOptions.method,
           stackApiKey,
@@ -70,7 +69,7 @@ class ContentstackService {
         const response = await axios(requestOptions);
         return response.data;
       } catch (error) {
-        logger.error('Contentstack API request failed', {
+        console.error('Contentstack API request failed', {
           endpoint,
           stackApiKey,
           error: error.message,
@@ -81,7 +80,7 @@ class ContentstackService {
 
         if (error.response?.status === 401 && retryCount < maxRetries) {
           // Token is invalid, try to refresh it
-          logger.info('Token invalid, attempting to refresh', { stackApiKey, retryCount });
+          console.info('Token invalid, attempting to refresh', { stackApiKey, retryCount });
           
           try {
             // Try to refresh the token
@@ -89,7 +88,7 @@ class ContentstackService {
             retryCount++;
             continue; // Retry the request with the new token
           } catch (refreshError) {
-            logger.error('Failed to refresh token', {
+            console.error('Failed to refresh token', {
               stackApiKey,
               error: refreshError.message,
             });
@@ -142,7 +141,7 @@ class ContentstackService {
 
       return response.content_types || [];
     } catch (error) {
-      logger.error('Failed to fetch content types', {
+      console.error('Failed to fetch content types', {
         stackApiKey,
         error: error.message,
       });
@@ -175,7 +174,7 @@ class ContentstackService {
 
       return response.entries || [];
     } catch (error) {
-      logger.error('Failed to fetch entries by content type', {
+      console.error('Failed to fetch entries by content type', {
         stackApiKey,
         contentTypeUid,
         environment,
@@ -208,7 +207,7 @@ class ContentstackService {
       if (error.statusCode === 404) {
         return null;
       }
-      logger.error('Failed to fetch entry by UID', {
+      console.error('Failed to fetch entry by UID', {
         stackApiKey,
         contentTypeUid,
         entryUid,
@@ -227,13 +226,13 @@ class ContentstackService {
    */
   async fetchAllEntries(stackApiKey, environment = 'development') {
     try {
-      logger.info(`Fetching all entries for stack: ${stackApiKey}`);
+      console.info(`Fetching all entries for stack: ${stackApiKey}`);
 
       // First, get all content types
       const contentTypes = await this.fetchContentTypes(stackApiKey);
       
       if (!contentTypes || contentTypes.length === 0) {
-        logger.warn(`No content types found for stack: ${stackApiKey}`);
+        console.warn(`No content types found for stack: ${stackApiKey}`);
         return [];
       }
 
@@ -254,9 +253,9 @@ class ContentstackService {
             entries,
           });
 
-          logger.debug(`Fetched ${entries.length} entries for content type: ${contentType.uid}`);
+          console.debug(`Fetched ${entries.length} entries for content type: ${contentType.uid}`);
         } catch (error) {
-          logger.error(`Failed to fetch entries for content type: ${contentType.uid}`, {
+          console.error(`Failed to fetch entries for content type: ${contentType.uid}`, {
             error: error.message,
           });
           // Continue with other content types
@@ -268,11 +267,11 @@ class ContentstackService {
         0
       );
 
-      logger.info(`Fetched ${totalEntries} total entries across ${entriesByContentType.length} content types`);
+      console.info(`Fetched ${totalEntries} total entries across ${entriesByContentType.length} content types`);
 
       return entriesByContentType;
     } catch (error) {
-      logger.error('Failed to fetch all entries', {
+      console.error('Failed to fetch all entries', {
         stackApiKey,
         environment,
         error: error.message,
@@ -315,7 +314,7 @@ class ContentstackService {
         },
       };
     } catch (error) {
-      logger.error('Failed to fetch paginated entries', {
+      console.error('Failed to fetch paginated entries', {
         stackApiKey,
         contentTypeUid,
         environment,
@@ -341,7 +340,7 @@ class ContentstackService {
 
       return response.stack || null;
     } catch (error) {
-      logger.error('Failed to get stack info', {
+      console.error('Failed to get stack info', {
         stackApiKey,
         error: error.message,
       });

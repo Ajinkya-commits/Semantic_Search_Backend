@@ -1,51 +1,8 @@
-const logger = require('../config/logger');
 const OAuthToken = require('../models/OAuthToken');
 
-
-const validateStackApiKey = (req, res, next) => {
-  const stackApiKey = req.body.stackApiKey || req.query.stackApiKey || req.params.stackApiKey;
-
-  if (!stackApiKey) {
-    logger.warn('Stack API key missing from request', {
-      method: req.method,
-      url: req.url,
-      body: req.body,
-      query: req.query,
-      params: req.params,
-    });
-
-    return res.status(400).json({
-      error: 'Stack API key is required',
-      message: 'All operations must be scoped to a specific stack. Please provide stackApiKey in request body, query parameters, or URL parameters.',
-    });
-  }
-
-  if (!stackApiKey.startsWith('blt') || stackApiKey.length < 10) {
-    logger.warn('Invalid stack API key format', {
-      stackApiKey,
-      method: req.method,
-      url: req.url,
-    });
-
-    return res.status(400).json({
-      error: 'Invalid stack API key format',
-      message: 'Stack API key must be a valid Contentstack API key (starts with "blt")',
-    });
-  }
-
-  req.stackApiKey = stackApiKey;
-  
-  logger.debug('Stack API key validated', {
-    stackApiKey,
-    method: req.method,
-    url: req.url,
-  });
-
-  next();
-};
-
 /**
- * Middleware to automatically detect and use available stack API keys
+ * Middleware to detect and validate stack API key from request
+ * Supports multiple detection methods for different contexts
  */
 const autoDetectStackApiKey = async (req, res, next) => {
   try {
@@ -71,7 +28,7 @@ const autoDetectStackApiKey = async (req, res, next) => {
       }
       
       req.stackApiKey = explicitStackApiKey;
-      logger.debug('Using explicitly provided stack API key', { stackApiKey: explicitStackApiKey });
+      console.log('Using explicitly provided stack API key', { stackApiKey: explicitStackApiKey });
       return next();
     }
 
@@ -88,7 +45,7 @@ const autoDetectStackApiKey = async (req, res, next) => {
     if (activeTokens.length === 1) {
       // Only one active stack, use it automatically
       req.stackApiKey = activeTokens[0].stackApiKey;
-      logger.debug('Auto-detected single active stack', { stackApiKey: req.stackApiKey });
+      console.log('Auto-detected single active stack', { stackApiKey: req.stackApiKey });
       return next();
     }
 
@@ -101,7 +58,7 @@ const autoDetectStackApiKey = async (req, res, next) => {
     })[0];
 
     req.stackApiKey = mostRecentToken.stackApiKey;
-    logger.debug('Auto-detected most recently used stack', { 
+    console.log('Auto-detected most recently used stack', { 
       stackApiKey: req.stackApiKey,
       lastUsed: mostRecentToken.lastUsed,
       totalStacks: activeTokens.length
@@ -109,7 +66,7 @@ const autoDetectStackApiKey = async (req, res, next) => {
     return next();
 
   } catch (error) {
-    logger.error('Error in auto-detect stack API key middleware', {
+    console.error('Error in auto-detect stack API key middleware', {
       error: error.message,
       method: req.method,
       url: req.url,
@@ -155,7 +112,7 @@ const validateStackToken = async (req, res, next) => {
     const token = await tokenService.getValidAccessToken(stackApiKey);
     
     if (!token) {
-      logger.warn('No valid token found for stack', {
+      console.warn('No valid token found for stack', {
         stackApiKey,
         method: req.method,
         url: req.url,
@@ -172,7 +129,7 @@ const validateStackToken = async (req, res, next) => {
     
     // Update lastUsed timestamp (don't await to avoid blocking the request)
     token.updateLastUsed().catch(err => {
-      logger.warn('Failed to update lastUsed timestamp', {
+      console.error('Failed to update lastUsed timestamp', {
         stackApiKey,
         error: err.message,
       });
@@ -180,7 +137,7 @@ const validateStackToken = async (req, res, next) => {
     
     next();
   } catch (error) {
-    logger.error('Error validating stack token', {
+    console.error('Error validating stack token', {
       stackApiKey: req.stackApiKey,
       error: error.message,
     });
@@ -211,7 +168,7 @@ const validateStackIndex = async (req, res, next) => {
     const indexExists = await pineconeIndexService.indexExists(indexName);
 
     if (!indexExists) {
-      logger.warn('No Pinecone index found for stack', {
+      console.warn('No Pinecone index found for stack', {
         stackApiKey,
         indexName,
         method: req.method,
@@ -231,7 +188,7 @@ const validateStackIndex = async (req, res, next) => {
     
     next();
   } catch (error) {
-    logger.error('Error validating stack index', {
+    console.error('Error validating stack index', {
       stackApiKey: req.stackApiKey,
       error: error.message,
     });
@@ -244,7 +201,6 @@ const validateStackIndex = async (req, res, next) => {
 };
 
 module.exports = {
-  validateStackApiKey,
   ensureStackIsolation,
   validateStackToken,
   validateStackIndex,

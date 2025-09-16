@@ -1,6 +1,5 @@
 const express = require('express');
 const indexingService = require('../services/indexingService');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 
 const router = express.Router();
@@ -20,7 +19,7 @@ router.post('/entry-sync', async (req, res) => {
                      req.query.stackApiKey;
 
   // Debug logging to see what we're receiving
-  logger.debug('Webhook payload debug', {
+  console.log('Webhook payload debug', {
     headers: req.headers,
     query: req.query,
     apiKeyFromPayload: api_key,
@@ -34,7 +33,7 @@ router.post('/entry-sync', async (req, res) => {
   }
 
   if (!stackApiKey) {
-    logger.warn('No stackApiKey found in webhook request', { 
+    console.log('No stackApiKey found in webhook request', { 
       headers: Object.keys(req.headers),
       query: req.query,
       apiKeyFromPayload: api_key,
@@ -43,7 +42,7 @@ router.post('/entry-sync', async (req, res) => {
     });
   }
 
-  logger.info(`Webhook received: ${event} for ${contentType} → ${entryUid}`, { stackApiKey });
+  console.log(`Webhook received: ${event} for ${contentType} → ${entryUid}`, { stackApiKey });
 
   res.json({ status: 'Webhook received, processing...' });
 
@@ -51,7 +50,7 @@ router.post('/entry-sync', async (req, res) => {
     try {
       if (event === 'delete') {
         await indexingService.removeEntry(entryUid, stackApiKey);
-        logger.info(`🗑️ Deleted entry ${entryUid} from index`);
+        console.log(`🗑️ Deleted entry ${entryUid} from index`);
         return;
       }
 
@@ -59,14 +58,14 @@ router.post('/entry-sync', async (req, res) => {
       const success = await indexingService.indexEntry(entry, contentType, stackApiKey);
       
       if (success) {
-        logger.info(`✅ Indexed entry ${entryUid} via webhook`);
+        console.log(`✅ Indexed entry ${entryUid} via webhook`);
       } else {
-        logger.warn(`⚠️ Skipped indexing entry ${entryUid} (no content)`);
+        console.log(`⚠️ Skipped indexing entry ${entryUid} (no content)`);
       }
 
-      logger.info(`🎉 Finished processing entry ${entryUid}`);
+      console.log(`🎉 Finished processing entry ${entryUid}`);
     } catch (err) {
-      logger.error('❌ Async webhook error:', {
+      console.error('❌ Async webhook error:', {
         error: err.message,
         entryUid,
         contentType,

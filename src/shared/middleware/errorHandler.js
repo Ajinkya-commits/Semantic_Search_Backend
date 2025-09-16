@@ -1,5 +1,3 @@
-const logger = require('../../config/logger');
-
 class AppError extends Error {
   constructor(message, statusCode) {
     super(message);
@@ -20,7 +18,7 @@ const errorHandler = (err, req, res, next) => {
   error.message = err.message;
 
   // Log error
-  logger.error('Error Handler:', {
+  console.error('Error Handler:', {
     message: error.message,
     stack: error.stack,
     url: req.originalUrl,

@@ -1,4 +1,3 @@
-const logger = require('../../../config/logger');
 const { AppError, asyncHandler } = require('../../../shared/middleware/errorHandler');
 const embeddingsService = require('../../../services/embeddingsService');
 const vectorSearchService = require('../../../services/vectorSearchService');
@@ -19,7 +18,7 @@ class TextSearchController {
     const stackApiKey = req.stackApiKey;
 
     try {
-      logger.info('Semantic search request', {
+      console.log('Semantic search request', {
         query: query.substring(0, 100),
         topK,
         filters,
@@ -82,7 +81,7 @@ class TextSearchController {
       const responseTime = Date.now() - startTime;
       await logSearch(req, query, 0, filters, responseTime, false, error.message);
       
-      logger.error('Semantic search failed', {
+      console.error('Semantic search failed', {
         query,
         error: error.message,
         responseTime,
@@ -102,7 +101,7 @@ class TextSearchController {
       throw new AppError('Query must be a non-empty string', 400);
     }
 
-    logger.info('Text search request', { query, limit, threshold });
+    console.log('Text search request', { query, limit, threshold });
 
     // Generate text embedding
     const queryEmbedding = await embeddingsService.generateTextEmbedding(query, 'search_query');
@@ -134,7 +133,7 @@ class TextSearchController {
     try {
       const entriesByContentType = await contentstackService.fetchAllEntries(stackApiKey, environment);
 
-      logger.debug(`Fetched entries for stack: ${stackApiKey}`, {
+      console.log(`Fetched entries for stack: ${stackApiKey}`, {
         contentTypes: entriesByContentType.length,
         totalEntries: entriesByContentType.reduce((sum, ct) => sum + ct.entries.length, 0),
       });
@@ -149,7 +148,7 @@ class TextSearchController {
       });
 
     } catch (error) {
-      logger.error('Failed to fetch all entries', {
+      console.error('Failed to fetch all entries', {
         error: error.message,
         environment,
       });

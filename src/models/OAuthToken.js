@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const logger = require('../config/logger');
 
 const tokenSchema = new mongoose.Schema({
   stackApiKey: {
@@ -82,19 +81,26 @@ tokenSchema.statics.findActiveTokens = function() {
 };
 
 tokenSchema.statics.deactivateExpiredTokens = async function() {
-  const result = await this.updateMany(
-    { 
-      expiresAt: { $lte: new Date() },
-      isActive: true 
-    },
-    { isActive: false }
-  );
-  
-  if (result.modifiedCount > 0) {
-    logger.info(`Deactivated ${result.modifiedCount} expired tokens`);
+  try {
+    const result = await this.updateMany(
+      { 
+        expiresAt: { $lte: new Date() },
+        isActive: true 
+      },
+      { isActive: false }
+    );
+    
+    if (result.modifiedCount > 0) {
+      console.log(`Deactivated ${result.modifiedCount} expired tokens`);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Failed to deactivate expired tokens', {
+      error: error.message,
+    });
+    throw error;
   }
-  
-  return result;
 };
 
 tokenSchema.statics.findTokensNeedingRefresh = function() {

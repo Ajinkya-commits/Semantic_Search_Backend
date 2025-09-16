@@ -1,6 +1,5 @@
 const axios = require('axios');
 const config = require('../config');
-const logger = require('../config/logger');
 const { AppError } = require('../shared/middleware/errorHandler');
 
 class EmbeddingsService {
@@ -21,7 +20,7 @@ class EmbeddingsService {
     }
 
     try {
-      logger.debug('Generating text embedding', { 
+      console.debug('Generating text embedding', { 
         textLength: text.length, 
         inputType 
       });
@@ -48,13 +47,13 @@ class EmbeddingsService {
         throw new AppError('Invalid embedding response from Cohere API', 500);
       }
 
-      logger.debug('Text embedding generated successfully', { 
+      console.debug('Text embedding generated successfully', { 
         vectorLength: vector.length 
       });
 
       return vector;
     } catch (error) {
-      logger.error('Text embedding generation failed', {
+      console.error('Text embedding generation failed', {
         error: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -90,7 +89,7 @@ class EmbeddingsService {
     }
 
     try {
-      logger.debug('Generating image embedding', { imageUrl, inputType });
+      console.debug('Generating image embedding', { imageUrl, inputType });
 
       const response = await axios.post(
         `${this.baseUrl}/embed`,
@@ -113,13 +112,13 @@ class EmbeddingsService {
         throw new AppError('Invalid image embedding response from Cohere API', 500);
       }
 
-      logger.debug('Image embedding generated successfully', { 
+      console.debug('Image embedding generated successfully', { 
         vectorLength: vector.length 
       });
 
       return vector;
     } catch (error) {
-      logger.error('Image embedding generation failed', {
+      console.error('Image embedding generation failed', {
         error: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -162,7 +161,7 @@ class EmbeddingsService {
     }
 
     try {
-      logger.debug('Generating batch embeddings', { 
+      console.debug('Generating batch embeddings', { 
         textCount: texts.length, 
         inputType 
       });
@@ -189,13 +188,13 @@ class EmbeddingsService {
         throw new AppError('Invalid batch embedding response from Cohere API', 500);
       }
 
-      logger.debug('Batch embeddings generated successfully', { 
+      console.debug('Batch embeddings generated successfully', { 
         vectorCount: vectors.length 
       });
 
       return vectors;
     } catch (error) {
-      logger.error('Batch embedding generation failed', {
+      console.error('Batch embedding generation failed', {
         error: error.message,
         response: error.response?.data,
         status: error.response?.status,

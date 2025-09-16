@@ -1,13 +1,6 @@
-/**
- * Database migration script
- * This script helps migrate from the old structure to the new one
- */
-
 const mongoose = require('mongoose');
 const config = require('../../config');
-const logger = require('../../config/logger');
 
-// Import models
 const OAuthToken = require('../../models/OAuthToken');
 const SearchLog = require('../../models/SearchLog');
 
@@ -19,9 +12,9 @@ class DatabaseMigration {
   async connect() {
     try {
       this.connection = await mongoose.connect(config.database.mongoUri, config.database.options);
-      logger.info('Connected to database for migration');
+      console.log('Connected to database for migration');
     } catch (error) {
-      logger.error('Failed to connect to database:', error);
+      console.error('Failed to connect to database:', error);
       throw error;
     }
   }
@@ -29,16 +22,13 @@ class DatabaseMigration {
   async disconnect() {
     if (this.connection) {
       await mongoose.connection.close();
-      logger.info('Disconnected from database');
+      console.log('Disconnected from database');
     }
   }
 
-  /**
-   * Create indexes for better performance
-   */
   async createIndexes() {
     try {
-      logger.info('Creating database indexes...');
+      console.log('Creating database indexes...');
 
       // OAuthToken indexes
       await OAuthToken.collection.createIndex({ stackApiKey: 1, isActive: 1 });
@@ -57,36 +47,30 @@ class DatabaseMigration {
         { expireAfterSeconds: 30 * 24 * 60 * 60 }
       );
 
-      logger.info('✅ Database indexes created successfully');
+      console.log('Database indexes created successfully');
     } catch (error) {
-      logger.error('Failed to create indexes:', error);
+      console.error('Failed to create indexes:', error);
       throw error;
     }
   }
 
-  /**
-   * Clean up expired tokens
-   */
   async cleanupExpiredTokens() {
     try {
-      logger.info('Cleaning up expired tokens...');
+      console.log('Cleaning up expired tokens...');
       
       const result = await OAuthToken.deactivateExpiredTokens();
       
       if (result.modifiedCount > 0) {
-        logger.info(`✅ Deactivated ${result.modifiedCount} expired tokens`);
+        console.log(`Deactivated ${result.modifiedCount} expired tokens`);
       } else {
-        logger.info('No expired tokens found');
+        console.log('No expired tokens found');
       }
     } catch (error) {
-      logger.error('Failed to cleanup expired tokens:', error);
+      console.error('Failed to cleanup expired tokens:', error);
       throw error;
     }
   }
 
-  /**
-   * Get database statistics
-   */
   async getDatabaseStats() {
     try {
       const stats = {
@@ -102,29 +86,26 @@ class DatabaseMigration {
         }),
       };
 
-      logger.info('Database statistics:', stats);
+      console.log('Database statistics:', stats);
       return stats;
     } catch (error) {
-      logger.error('Failed to get database statistics:', error);
+      console.error('Failed to get database statistics:', error);
       throw error;
     }
   }
 
-  /**
-   * Run all migrations
-   */
   async runMigrations() {
     try {
-      logger.info('Starting database migrations...');
+      console.log('Starting database migrations...');
 
       await this.connect();
       await this.createIndexes();
       await this.cleanupExpiredTokens();
       await this.getDatabaseStats();
 
-      logger.info('✅ All migrations completed successfully');
+      console.log('All migrations completed successfully');
     } catch (error) {
-      logger.error('Migration failed:', error);
+      console.error('Migration failed:', error);
       throw error;
     } finally {
       await this.disconnect();
@@ -137,11 +118,11 @@ if (require.main === module) {
   const migration = new DatabaseMigration();
   migration.runMigrations()
     .then(() => {
-      logger.info('Migration completed successfully');
+      console.log('Migration completed successfully');
       process.exit(0);
     })
     .catch((error) => {
-      logger.error('Migration failed:', error);
+      console.error('Migration failed:', error);
       process.exit(1);
     });
 }

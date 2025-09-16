@@ -1,8 +1,9 @@
-const logger = require('../../../config/logger');
 const { AppError, asyncHandler } = require('../../../shared/middleware/errorHandler');
 const embeddingsService = require('../../../services/embeddingsService');
 const imageEmbeddingService = require('../../../services/imageEmbeddingService');
 const vectorSearchService = require('../../../services/vectorSearchService');
+const rerankerService = require('../../../services/rerankerService');
+const { validateSearchQuery, formatSearchResults } = require('../../../shared/utils/searchHelpers');
 
 class HybridSearchController {
   /**
@@ -23,7 +24,7 @@ class HybridSearchController {
       throw new AppError('Either text query or image URL must be provided', 400);
     }
 
-    logger.info('Hybrid search request', { 
+    console.log('Hybrid search request', { 
       hasQuery: !!query, 
       hasImage: !!imageUrl, 
       limit, 

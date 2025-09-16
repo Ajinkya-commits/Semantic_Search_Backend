@@ -1,70 +1,57 @@
 const tokenRefreshService = require('./tokenRefreshService');
-const logger = require('../config/logger');
 
 class BackgroundTokenRefresh {
   constructor() {
-    this.refreshInterval = null;
+    this.intervalId = null;
     this.isRunning = false;
-    this.refreshIntervalMs = 5 * 60 * 1000; 
+    this.refreshInterval = 5 * 60 * 1000; // 5 minutes
   }
-
 
   start() {
     if (this.isRunning) {
-      logger.warn('Background token refresh is already running');
+      console.log('Background token refresh is already running');
       return;
     }
 
-    logger.info('Starting background token refresh service', {
-      intervalMs: this.refreshIntervalMs,
-    });
-
+    console.log('Starting background token refresh service');
     this.isRunning = true;
     
     // Run immediately on start
     this.refreshTokens();
-
-    // Set up interval
-    this.refreshInterval = setInterval(() => {
+    
+    // Then run every 5 minutes
+    this.intervalId = setInterval(() => {
       this.refreshTokens();
-    }, this.refreshIntervalMs);
+    }, this.refreshInterval);
   }
 
   stop() {
     if (!this.isRunning) {
-      logger.warn('Background token refresh is not running');
+      console.log('Background token refresh is not running');
       return;
     }
 
-    logger.info('Stopping background token refresh service');
-
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-      this.refreshInterval = null;
-    }
-
+    console.log('Stopping background token refresh service');
     this.isRunning = false;
+    
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
   }
 
   async refreshTokens() {
     try {
-      logger.debug('Running background token refresh...');
+      console.log('Running background token refresh check...');
+      const result = await tokenRefreshService.refreshAllExpiredTokens();
       
-      const results = await tokenRefreshService.refreshAllExpiredTokens();
-      
-      if (results.total > 0) {
-        logger.info('Background token refresh completed', {
-          total: results.total,
-          refreshed: results.refreshed,
-          failed: results.failed,
-          errors: results.errors,
-        });
-      } else {
-        logger.debug('No tokens needed refreshing');
+      if (result.refreshed > 0 || result.failed > 0) {
+        console.log('Background token refresh completed', result);
       }
     } catch (error) {
-      logger.error('Background token refresh failed', {
+      console.error('Background token refresh failed', {
         error: error.message,
+        timestamp: new Date().toISOString()
       });
     }
   }
@@ -72,9 +59,8 @@ class BackgroundTokenRefresh {
   getStatus() {
     return {
       isRunning: this.isRunning,
-      refreshIntervalMs: this.refreshIntervalMs,
-      nextRefresh: this.refreshInterval ? 
-        new Date(Date.now() + this.refreshIntervalMs) : null,
+      refreshInterval: this.refreshInterval,
+      nextRefresh: this.intervalId ? new Date(Date.now() + this.refreshInterval).toISOString() : null
     };
   }
 }
@@ -82,5 +68,3 @@ class BackgroundTokenRefresh {
 const backgroundTokenRefresh = new BackgroundTokenRefresh();
 
 module.exports = backgroundTokenRefresh;
-
-

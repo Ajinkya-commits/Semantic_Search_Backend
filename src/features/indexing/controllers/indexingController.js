@@ -1,7 +1,8 @@
-const logger = require('../../../config/logger');
 const { AppError, asyncHandler } = require('../../../shared/middleware/errorHandler');
 const indexingService = require('../../../services/indexingService');
 const vectorSearchService = require('../../../services/vectorSearchService');
+const contentstackService = require('../../../services/contentstackService');
+const pineconeIndexService = require('../../../services/pineconeIndexService');
 
 class IndexingController {
 
@@ -9,14 +10,14 @@ class IndexingController {
     const stackApiKey = req.stackApiKey;
     const { environment = 'development', batchSize = 50 } = req.body;
 
-    logger.info('Starting reindexing process', { stackApiKey, environment, batchSize });
+    console.info('Starting reindexing process', { stackApiKey, environment, batchSize });
 
     try {
       const result = await indexingService.reindexAllEntries(stackApiKey, environment, {
         batchSize: parseInt(batchSize),
         onProgress: (progress) => {
          
-          logger.info('Reindexing progress', progress);
+          console.info('Reindexing progress', progress);
         }
       });
 
@@ -32,7 +33,7 @@ class IndexingController {
       });
 
     } catch (error) {
-      logger.error('Reindexing failed', { error: error.message, stackApiKey });
+      console.error('Reindexing failed', { error: error.message, stackApiKey });
       throw error;
     }
   });
@@ -55,7 +56,7 @@ class IndexingController {
       });
 
     } catch (error) {
-      logger.error('Failed to get indexing status', { error: error.message });
+      console.error('Failed to get indexing status', { error: error.message });
       throw error;
     }
   });
@@ -64,7 +65,7 @@ class IndexingController {
   clearIndex = asyncHandler(async (req, res) => {
     const stackApiKey = req.stackApiKey;
 
-    logger.warn('Clearing index', { stackApiKey });
+    console.warn('Clearing index', { stackApiKey });
 
     try {
       await vectorSearchService.clearIndex(stackApiKey);
@@ -76,7 +77,7 @@ class IndexingController {
       });
 
     } catch (error) {
-      logger.error('Failed to clear index', { error: error.message, stackApiKey });
+      console.error('Failed to clear index', { error: error.message, stackApiKey });
       throw error;
     }
   });
@@ -92,7 +93,7 @@ class IndexingController {
       throw new AppError('Entries array is required and must not be empty', 400);
     }
 
-    logger.info('Starting batch indexing', { 
+    console.info('Starting batch indexing', { 
       stackApiKey, 
       environment, 
       entryCount: entries.length 
@@ -116,7 +117,7 @@ class IndexingController {
       });
 
     } catch (error) {
-      logger.error('Batch indexing failed', { error: error.message, stackApiKey });
+      console.error('Batch indexing failed', { error: error.message, stackApiKey });
       throw error;
     }
   });
