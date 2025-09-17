@@ -4,7 +4,7 @@ const SearchLog = require('../../../models/SearchLog');
 
 class SearchAnalyticsController {
   /**
-   * Get search analytics
+   * Get search analytics for dashboard display
    */
   getSearchAnalytics = asyncHandler(async (req, res) => {
     const stackApiKey = req.stackApiKey;
@@ -21,6 +21,7 @@ class SearchAnalyticsController {
       ]);
 
       res.json({
+        success: true,
         period: {
           startDate,
           endDate,
@@ -37,21 +38,18 @@ class SearchAnalyticsController {
       });
 
     } catch (error) {
-      console.error('Failed to get search analytics', {
-        error: error.message,
-        stackApiKey,
-        days,
-      });
       throw error;
     }
   });
 
   /**
-   * Get search statistics
+   * Get search statistics and capabilities
    */
   getSearchStats = asyncHandler(async (req, res) => {
+    const stackApiKey = req.stackApiKey;
+
     try {
-      const stats = await vectorSearchService.getIndexStats();
+      const stats = await vectorSearchService.getIndexStats(stackApiKey);
       
       res.json({
         success: true,
@@ -61,11 +59,68 @@ class SearchAnalyticsController {
           imageSearch: true,
           hybridSearch: true,
           uploadSearch: true
+        },
+        indexInfo: {
+          totalVectors: stats?.totalVectors || 0,
+          dimensions: stats?.dimensions || 1536,
+          lastUpdated: stats?.lastUpdated || null
         }
       });
 
     } catch (error) {
-      console.error('Failed to get search stats', { error: error.message });
+      throw error;
+    }
+  });
+
+  /**
+   * Get search performance metrics
+   */
+  getPerformanceMetrics = asyncHandler(async (req, res) => {
+    const stackApiKey = req.stackApiKey;
+    const hours = req.query.hours || 24;
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setHours(startDate.getHours() - parseInt(hours));
+
+    try {
+      const metrics = await SearchLog.aggregate([
+        {
+          $match: {
+            stackApiKey,
+            timestamp: { $gte: startDate, $lte: endDate }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: "%Y-%m-%d %H:00",
+                date: "$timestamp"
+              }
+            },
+            searchCount: { $sum: 1 },
+            avgResponseTime: { $avg: "$responseTime" },
+            successRate: {
+              $avg: {
+                $cond: [{ $eq: ["$success", true] }, 1, 0]
+              }
+            }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]);
+
+      res.json({
+        success: true,
+        period: {
+          startDate,
+          endDate,
+          hours: parseInt(hours)
+        },
+        metrics
+      });
+
+    } catch (error) {
       throw error;
     }
   });

@@ -70,24 +70,26 @@ class TokenRefreshService {
   async updateTokenInDatabase(stackApiKey, newTokenData) {
     try {
       const updatedToken = await OAuthToken.findOneAndUpdate(
-        { stackApiKey, isActive: true },
+        { stackApiKey },
         {
           accessToken: newTokenData.accessToken,
           refreshToken: newTokenData.refreshToken,
           expiresAt: newTokenData.expiresAt,
           tokenType: newTokenData.tokenType,
+          isActive: true, // Reactivate the token after successful refresh
           lastUsed: new Date(),
         },
         { new: true, runValidators: true }
       );
 
       if (!updatedToken) {
-        throw new AppError(`No active token found for stack: ${stackApiKey}`, 404);
+        throw new AppError(`No token found for stack: ${stackApiKey}`, 404);
       }
 
       console.info('Successfully updated token in database', {
         stackApiKey,
         expiresAt: updatedToken.expiresAt.toISOString(),
+        isActive: updatedToken.isActive,
       });
 
       return updatedToken;
@@ -199,11 +201,16 @@ class TokenRefreshService {
     try {
       console.info('Starting refresh of all expired or expiring tokens');
 
+      // First, deactivate any expired tokens
+      await OAuthToken.deactivateExpiredTokens();
+
       // Find tokens that are expired or will expire within 5 minutes
       const fiveMinutesFromNow = new Date(Date.now() + (5 * 60 * 1000));
       const tokensToRefresh = await OAuthToken.find({
-        isActive: true,
-        expiresAt: { $lte: fiveMinutesFromNow },
+        $or: [
+          { isActive: true, expiresAt: { $lte: fiveMinutesFromNow } },
+          { isActive: false, expiresAt: { $gt: new Date(Date.now() - (24 * 60 * 60 * 1000)) } } // Include recently expired tokens (within 24 hours)
+        ]
       });
 
       const results = {
@@ -215,6 +222,12 @@ class TokenRefreshService {
 
       for (const token of tokensToRefresh) {
         try {
+          console.info(`Attempting to refresh token for stack: ${token.stackApiKey}`, {
+            isActive: token.isActive,
+            expiresAt: token.expiresAt.toISOString(),
+            minutesUntilExpiry: Math.round((token.expiresAt - new Date()) / (1000 * 60))
+          });
+
           await this.refreshAndUpdateToken(token.stackApiKey);
           results.refreshed++;
           console.info('Successfully refreshed token', { stackApiKey: token.stackApiKey });
@@ -228,7 +241,23 @@ class TokenRefreshService {
             stackApiKey: token.stackApiKey,
             error: error.message,
           });
+
+          // If refresh fails due to invalid refresh token, mark as inactive
+          if (error.message.includes('Invalid refresh token') || error.message.includes('refresh token')) {
+            await OAuthToken.findOneAndUpdate(
+              { stackApiKey: token.stackApiKey },
+              { isActive: false }
+            );
+            console.warn(`Marked token as inactive due to refresh failure: ${token.stackApiKey}`);
+          }
         }
+      }
+
+      // Cleanup old inactive tokens (older than 30 days)
+      try {
+        await OAuthToken.cleanupOldTokens();
+      } catch (cleanupError) {
+        console.warn('Token cleanup failed', { error: cleanupError.message });
       }
 
       console.info('Completed refresh of expired tokens', results);

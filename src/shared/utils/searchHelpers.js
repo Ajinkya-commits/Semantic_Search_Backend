@@ -50,9 +50,17 @@ async function enrichResultsWithContentstackData(results, stackApiKey, environme
   }
 }
 
-
 async function logSearch(req, query, resultsCount, filters, responseTime, success, errorMessage = null) {
   try {
+    console.log('Attempting to log search:', {
+      query: query ? query.substring(0, 50) : 'N/A',
+      stackApiKey: req.query.stackApiKey || req.stackApiKey || 'unknown',
+      resultsCount,
+      responseTime,
+      success,
+      hasError: !!errorMessage
+    });
+
     const searchLog = new SearchLog({
       query,
       stackApiKey: req.query.stackApiKey || req.stackApiKey || 'unknown',
@@ -66,10 +74,16 @@ async function logSearch(req, query, resultsCount, filters, responseTime, succes
       errorMessage,
     });
 
-    await searchLog.save();
+    const savedLog = await searchLog.save();
+    console.log('Search log saved successfully:', {
+      id: savedLog._id,
+      query: savedLog.query.substring(0, 50),
+      stackApiKey: savedLog.stackApiKey
+    });
   } catch (error) {
     console.error('Failed to log search', {
       error: error.message,
+      stack: error.stack,
       query: query ? query.substring(0, 100) : 'N/A',
     });
   }

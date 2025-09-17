@@ -40,7 +40,7 @@ router.post('/hybrid',
   hybridSearchController.searchHybrid
 );
 
-// Analytics and stats routes
+// Analytics routes for frontend dashboard
 router.get('/analytics', 
   authenticateStack, 
   searchAnalyticsController.getSearchAnalytics
@@ -49,6 +49,11 @@ router.get('/analytics',
 router.get('/stats', 
   authenticateStack, 
   searchAnalyticsController.getSearchStats
+);
+
+router.get('/performance', 
+  authenticateStack, 
+  searchAnalyticsController.getPerformanceMetrics
 );
 
 // Debug route to check indexed images
@@ -76,6 +81,33 @@ router.get('/debug/images',
         success: true,
         indexStats: stats,
         stackApiKey: stackApiKey
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Debug route to check recent search logs
+router.get('/debug/logs', 
+  authenticateStack, 
+  async (req, res) => {
+    try {
+      const SearchLog = require('../../../models/SearchLog');
+      const stackApiKey = req.stackApiKey;
+      
+      const recentLogs = await SearchLog.find({ stackApiKey })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .select('query stackApiKey resultsCount responseTime success createdAt');
+      
+      const totalLogs = await SearchLog.countDocuments({ stackApiKey });
+      
+      res.json({
+        success: true,
+        totalLogs,
+        recentLogs,
+        stackApiKey
       });
     } catch (error) {
       res.status(500).json({ error: error.message });

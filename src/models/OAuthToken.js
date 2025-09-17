@@ -46,7 +46,7 @@ const tokenSchema = new mongoose.Schema({
 
 // Indexes for better performance
 tokenSchema.index({ stackApiKey: 1, isActive: 1 });
-tokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
+tokenSchema.index({ expiresAt: 1 }); // Regular index for querying, no auto-deletion
 
 // Pre-save middleware
 tokenSchema.pre('save', function(next) {
@@ -97,6 +97,28 @@ tokenSchema.statics.deactivateExpiredTokens = async function() {
     return result;
   } catch (error) {
     console.error('Failed to deactivate expired tokens', {
+      error: error.message,
+    });
+    throw error;
+  }
+};
+
+tokenSchema.statics.cleanupOldTokens = async function() {
+  try {
+    // Delete tokens that have been inactive for more than 30 days
+    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+    const result = await this.deleteMany({
+      isActive: false,
+      updatedAt: { $lt: thirtyDaysAgo }
+    });
+    
+    if (result.deletedCount > 0) {
+      console.log(`Cleaned up ${result.deletedCount} old inactive tokens`);
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Failed to cleanup old tokens', {
       error: error.message,
     });
     throw error;

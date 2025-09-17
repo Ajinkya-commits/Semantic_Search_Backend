@@ -113,6 +113,15 @@ searchLogSchema.statics.getPopularQueries = function(stackApiKey, limit = 10, st
     },
     { $sort: { count: -1 } },
     { $limit: limit },
+    {
+      $project: {
+        _id: 0,
+        query: '$_id',
+        count: 1,
+        averageResponseTime: 1,
+        averageResultsCount: 1,
+      },
+    },
   ]);
 };
 
