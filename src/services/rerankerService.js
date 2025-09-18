@@ -1,189 +1,75 @@
-const axios = require('axios');
-const config = require('../config');
-const { AppError } = require('../shared/middleware/errorHandler');
+const axios = require("axios");
+const config = require("../config");
+const { AppError } = require("../middleware/errorHandler");
 
-class RerankerService {
-  constructor() {
-    this.apiKey = config.apis.cohere.apiKey;
-    this.baseUrl = config.apis.cohere.baseUrl;
-    this.model = config.apis.cohere.models.rerank;
-    this.timeout = 30000; // 30 seconds
+const rerankResults = async (query, results, topK = 10) => {
+  if (!query || typeof query !== "string") {
+    throw new AppError("Query is required and must be a string", 400);
   }
 
-  /**
-   * Rerank search results using Cohere's rerank API
-   * @param {string} query - Original search query
-   * @param {Array} results - Array of search results to rerank
-   * @param {number} topK - Number of top results to return after reranking
-   * @returns {Array} Reranked results with rerank scores
-   */
-  async rerankResults(query, results, topK = 10) {
-    if (!query || typeof query !== 'string') {
-      throw new AppError('Query must be a non-empty string', 400);
+  if (!Array.isArray(results) || results.length === 0) {
+    return results;
+  }
+
+  try {
+    console.log(`Reranking ${results.length} results...`);
+
+    const documents = results
+      .map((result) => result.text || "")
+      .filter((text) => text.length > 0);
+
+    if (documents.length === 0) {
+      console.log("No documents to rerank, returning original results");
+      return results;
     }
 
-    if (!Array.isArray(results) || results.length === 0) {
-      console.log('No results to rerank');
-      return [];
-    }
-
-    if (topK < 1 || topK > 100) {
-      throw new AppError('topK must be between 1 and 100', 400);
-    }
-
-    // Limit the number of results to rerank (API has limits)
-    const maxRerankResults = 100;
-    const resultsToRerank = results.slice(0, maxRerankResults);
-
-    try {
-      console.log('Reranking results', {
-        queryLength: query.length,
-        resultsCount: resultsToRerank.length,
-        topK,
-      });
-
-      const documents = resultsToRerank.map(result => result.text || '');
-
-      const response = await axios.post(
-        `${this.baseUrl}/rerank`,
-        {
-          model: this.model,
-          query,
-          documents,
-          top_k: Math.min(topK, resultsToRerank.length),
-          return_documents: false, // We don't need the full documents back
+    const response = await axios.post(
+      "https://api.cohere.ai/v1/rerank",
+      {
+        model: "rerank-v3.5",
+        query: query,
+        documents: documents,
+        top_k: Math.min(topK, documents.length),
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${config.apis.cohere.apiKey}`,
+          "Content-Type": "application/json",
         },
-        {
-          headers: {
-            Authorization: `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: this.timeout,
-        }
+        timeout: 30000,
+      }
+    );
+
+    if (!response.data || !response.data.results) {
+      console.log("No rerank results, returning original results");
+      return results;
+    }
+
+    console.log(`Reranked ${response.data.results.length} results`);
+
+    const rerankedResults = response.data.results.map((result) => {
+      const originalResult = results[result.index];
+      console.log(
+        `Reranking result: original score=${originalResult.score}, rerank score=${result.relevance_score}`
       );
 
-      const rerankResults = response.data.results || [];
-      
-      if (!Array.isArray(rerankResults)) {
-        throw new AppError('Invalid rerank response format', 500);
-      }
+      return {
+        ...originalResult,
+        rerankScore: result.relevance_score,
+        originalScore: originalResult.score,
+      };
+    });
 
-      // Map rerank results back to original results with scores
-      const rerankedResults = rerankResults.map(rerankResult => {
-        const originalResult = resultsToRerank[rerankResult.index];
-        return {
-          ...originalResult,
-          rerankScore: rerankResult.relevance_score,
-          rerankIndex: rerankResult.index,
-        };
-      });
-
-      console.log('Reranking completed', {
-        originalCount: resultsToRerank.length,
-        rerankedCount: rerankedResults.length,
-        topRerankScore: rerankedResults[0]?.rerankScore || 0,
-      });
-
-      return rerankedResults;
-    } catch (error) {
-      console.error('Reranking failed', {
-        error: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-
-      if (error.response?.status === 429) {
-        throw new AppError('Rate limit exceeded for reranking API', 429);
-      } else if (error.response?.status === 401) {
-        throw new AppError('Invalid API key for reranking service', 401);
-      } else if (error.response?.status >= 500) {
-        throw new AppError('Reranking service temporarily unavailable', 503);
-      }
-
-      // If reranking fails, return original results without rerank scores
-      console.log('Reranking failed, returning original results');
-      return resultsToRerank.slice(0, topK).map(result => ({
-        ...result,
-        rerankScore: null,
-        rerankIndex: null,
-      }));
-    }
+    return rerankedResults;
+  } catch (error) {
+    console.error(
+      "Reranking failed, returning original results:",
+      error.message
+    );
+    return results;
   }
+};
 
-  /**
-   * Rerank results with custom scoring weights
-   * @param {string} query - Original search query
-   * @param {Array} results - Array of search results to rerank
-   * @param {number} topK - Number of top results to return
-   * @param {object} weights - Scoring weights for different factors
-   * @returns {Array} Reranked results with combined scores
-   */
-  async rerankWithWeights(query, results, topK = 10, weights = {}) {
-    const defaultWeights = {
-      rerankScore: 0.7,
-      similarityScore: 0.3,
-    };
-
-    const finalWeights = { ...defaultWeights, ...weights };
-
-    try {
-      // First, get rerank scores
-      const rerankedResults = await this.rerankResults(query, results, topK);
-
-      // Combine scores with weights
-      const combinedResults = rerankedResults.map(result => {
-        const rerankScore = result.rerankScore || 0;
-        const similarityScore = result.score || 0;
-        
-        const combinedScore = 
-          (rerankScore * finalWeights.rerankScore) + 
-          (similarityScore * finalWeights.similarityScore);
-
-        return {
-          ...result,
-          combinedScore,
-          rerankScore,
-          similarityScore,
-        };
-      });
-
-      // Sort by combined score
-      combinedResults.sort((a, b) => b.combinedScore - a.combinedScore);
-
-      console.log('Combined scoring completed', {
-        topCombinedScore: combinedResults[0]?.combinedScore || 0,
-        weights: finalWeights,
-      });
-
-      return combinedResults.slice(0, topK);
-    } catch (error) {
-      console.error('Combined scoring failed', { error: error.message });
-      
-      // Fallback to original results
-      return results.slice(0, topK).map(result => ({
-        ...result,
-        combinedScore: result.score || 0,
-        rerankScore: null,
-        similarityScore: result.score || 0,
-      }));
-    }
-  }
-
-  /**
-   * Get reranking model information
-   * @returns {object} Model information
-   */
-  getModelInfo() {
-    return {
-      model: this.model,
-      maxDocuments: 100,
-      maxQueryLength: 1000,
-      supportedLanguages: ['en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'ko', 'zh'],
-    };
-  }
-}
-
-// Create singleton instance
-const rerankerService = new RerankerService();
-
-module.exports = rerankerService;
+module.exports = {
+  rerankResults,
+};

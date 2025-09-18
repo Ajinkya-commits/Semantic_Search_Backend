@@ -28,10 +28,8 @@ oauthCallbackRouter.get("/oauth/callback", async (req, res) => {
     const tokenData = tokenResponse.data;
     console.log("Raw token response:", JSON.stringify(tokenData, null, 2));
     
-    // Map Contentstack response fields to expected format
     const mappedTokenData = {
       stackApiKey: tokenData.stack_api_key,
-      organizationUid: tokenData.organization_uid,
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresIn: tokenData.expires_in
@@ -40,18 +38,15 @@ oauthCallbackRouter.get("/oauth/callback", async (req, res) => {
     console.log("Mapped token data:", JSON.stringify(mappedTokenData, null, 2));
     await saveOrUpdateToken(mappedTokenData);
 
-    // Create a new Pinecone index for this stack
     try {
       console.log(`Creating Pinecone index for stack: ${tokenData.stack_api_key}`);
-      const indexResult = await pineconeIndexService.createStackIndex(tokenData.stack_api_key);
+      const indexResult = await pineconeIndexService.createIndex(tokenData.stack_api_key);
       console.log("Index creation result:", indexResult);
     } catch (indexError) {
       console.error("Failed to create Pinecone index for stack:", {
         stackApiKey: tokenData.stack_api_key,
         error: indexError.message
       });
-      // Don't fail the OAuth flow if index creation fails
-      // The index can be created later manually
     }
 
     const redirectUrl = `https://eu-app.contentstack.com/#!/stack/${tokenData.stack_api_key}/dashboard`;

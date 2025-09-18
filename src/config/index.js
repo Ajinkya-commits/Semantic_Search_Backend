@@ -1,34 +1,24 @@
 require('dotenv').config();
 
 const config = {
-  // Server Configuration
   server: {
     port: process.env.PORT || 8000,
     env: process.env.NODE_ENV || 'development',
     host: process.env.HOST || 'localhost',
   },
 
-  // Database Configuration
   database: {
-    mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/contentstack-semantic-search',
-    options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    },
+    mongoUri: process.env.MONGO_URI,
   },
 
-  // External API Configuration
   apis: {
     cohere: {
       apiKey: process.env.COHERE_API_KEY,
       baseUrl: 'https://api.cohere.com/v1',
       models: {
         embedding: 'embed-v4.0',
-        rerank: 'rerank-multilingual-v3.0',
-        multimodal: 'embed-multimodal-v1.0',
+        rerank: 'rerank-v3.5',
+        multimodal: 'embed-v4.0',
       },
     },
     pinecone: {
@@ -45,7 +35,6 @@ const config = {
     },
   },
 
-  // Search Configuration
   search: {
     defaultTopK: 10,
     maxTopK: 50,
@@ -54,20 +43,17 @@ const config = {
     batchSize: 100,
   },
 
-  // Cache Configuration
   cache: {
-    ttl: 300, // 5 minutes
+    ttl: 300,
     maxSize: 1000,
   },
 
-  // Validation Configuration
   validation: {
     maxQueryLength: 500,
     maxFiltersCount: 10,
   },
 };
 
-// Validate required environment variables
 const requiredEnvVars = [
   'COHERE_API_KEY',
   'PINECONE_API_KEY',
@@ -80,15 +66,5 @@ const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 if (missingEnvVars.length > 0) {
   throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
 }
-
-// Log optional environment variables that are missing
-const optionalEnvVars = [
-  'CONTENTSTACK_WEBHOOK_SECRET',
-  'CONTENTSTACK_CLIENT_ID',
-  'CONTENTSTACK_CLIENT_SECRET',
-  'CONTENTSTACK_REDIRECT_URI',
-  'CONTENTSTACK_APP_UID',
-];
-
 
 module.exports = config;

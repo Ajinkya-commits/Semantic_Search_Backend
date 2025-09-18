@@ -1,317 +1,202 @@
-const { AppError, asyncHandler } = require('../shared/middleware/errorHandler');
-const contentstackService = require('../services/contentstackService');
+const { AppError, asyncHandler } = require('../middleware/errorHandler');
 const indexingService = require('../services/indexingService');
 const vectorSearchService = require('../services/vectorSearchService');
 
-class SyncController {
-  /**
-   * Index all entries for a stack
-   */
-  indexAllEntries = asyncHandler(async (req, res) => {
-    const environment = req.query.environment || 'development';
-    const { contentType } = req.body;
-    const stackApiKey = req.stackApiKey; // Now comes from middleware validation
+const indexAllEntries = asyncHandler(async (req, res) => {
+  const stackApiKey = req.stackApiKey;
+  const { environment = 'development', contentType } = req.body;
 
-    try {
-      console.log('Starting full indexing', {
-        stackApiKey,
-        contentType,
-        environment,
-      });
+  try {
+    console.log('Starting indexing with:', { stackApiKey, environment, contentType });
+    
+    const results = await indexingService.indexAllEntries(
+      stackApiKey,
+      environment,
+      { contentType }
+    );
 
-      // Stack API key is now validated by middleware, so we can use it directly
-      // Perform indexing
-      const results = await indexingService.indexAllEntries(
-        stackApiKey,
-        environment,
-        { contentType }
-      );
+    console.log('Indexing completed with results:', results);
+    res.json({
+      success: true,
+      message: 'Indexing completed',
+      results: {
+        ...results,
+        errorDetails: results.errorsList ? results.errorsList.slice(0, 5) : []
+      }
+    });
 
-      console.log('Full indexing completed', {
-        stackApiKey,
-        results,
-      });
+  } catch (error) {
+    console.error('Indexing failed:', error);
+    throw error;
+  }
+});
 
+const indexEntry = asyncHandler(async (req, res) => {
+  const stackApiKey = req.stackApiKey;
+  const { entry, contentType } = req.body;
+
+  if (!entry || !contentType) {
+    throw new AppError('Entry and contentType are required', 400);
+  }
+
+  try {
+    console.log('Indexing single entry:', { entryUid: entry.uid, contentType });
+    
+    const success = await indexingService.indexEntry(entry, contentType, stackApiKey);
+
+    if (success) {
       res.json({
-        status: 'success',
-        message: 'Indexing completed successfully',
-        results,
-        metadata: {
-          stackApiKey,
-          environment,
-          contentType,
-          timestamp: new Date().toISOString(),
-        },
+        success: true,
+        message: `Entry indexed successfully: ${entry.uid}`
       });
-    } catch (error) {
-      console.error('Full indexing failed', {
-        stackApiKey,
-        error: error.message,
-      });
-      throw error;
-    }
-  });
-
-  /**
-   * Index a specific entry
-   */
-  indexEntry = asyncHandler(async (req, res) => {
-    const { contentType, entryUid } = req.body;
-    const stackApiKey = req.stackApiKey; // Now comes from middleware validation
-    const environment = req.query.environment || 'development';
-
-    try {
-      if (!contentType || !entryUid) {
-        throw new AppError('Content type and entry UID are required', 400);
-      }
-
-      // Stack API key and token are now validated by middleware
-
-      // Fetch the specific entry
-      const entry = await contentstackService.fetchEntryByUid(
-        stackApiKey,
-        contentType,
-        entryUid,
-        environment
-      );
-
-      if (!entry) {
-        throw new AppError('Entry not found', 404);
-      }
-
-      // Index the entry
-      const success = await indexingService.indexEntry(entry, contentType, stackApiKey);
-
-      if (success) {
-        console.log(`Entry indexed successfully: ${entryUid}`);
-        res.json({
-          status: 'success',
-          message: 'Entry indexed successfully',
-          entryUid,
-          contentType,
-          metadata: {
-            stackApiKey,
-            environment,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } else {
-        res.json({
-          status: 'skipped',
-          message: 'Entry was skipped (no text content)',
-          entryUid,
-          contentType,
-          metadata: {
-            stackApiKey,
-            environment,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Entry indexing failed', {
-        entryUid,
-        contentType,
-        stackApiKey,
-        error: error.message,
-      });
-      throw error;
-    }
-  });
-
-  /**
-   * Remove entry from index
-   */
-  removeEntry = asyncHandler(async (req, res) => {
-    const { entryUid } = req.body;
-    const stackApiKey = req.stackApiKey; // Now comes from middleware validation
-
-    try {
-      if (!entryUid) {
-        throw new AppError('Entry UID is required', 400);
-      }
-
-      // Set the correct index for the stack
-      await vectorSearchService.setStackIndex(stackApiKey);
-
-      // Remove the entry
-      const success = await indexingService.removeEntry(entryUid);
-
-      if (success) {
-        console.log(`Entry removed from index: ${entryUid}`);
-        res.json({
-          status: 'success',
-          message: 'Entry removed from index',
-          entryUid,
-          metadata: {
-            stackApiKey,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } else {
-        throw new AppError('Failed to remove entry from index', 500);
-      }
-    } catch (error) {
-      console.error('Entry removal failed', {
-        entryUid,
-        stackApiKey,
-        error: error.message,
-      });
-      throw error;
-    }
-  });
-
-  /**
-   * Update entry in index
-   */
-  updateEntry = asyncHandler(async (req, res) => {
-    const { contentType, entryUid } = req.body;
-    const stackApiKey = req.stackApiKey; // Now comes from middleware validation
-    const environment = req.query.environment || 'development';
-
-    try {
-      if (!contentType || !entryUid) {
-        throw new AppError('Content type and entry UID are required', 400);
-      }
-
-      // Stack API key and token are now validated by middleware
-
-      // Fetch the updated entry
-      const entry = await contentstackService.fetchEntryByUid(
-        stackApiKey,
-        contentType,
-        entryUid,
-        environment
-      );
-
-      if (!entry) {
-        // Entry was deleted, remove from index
-        await vectorSearchService.setStackIndex(stackApiKey);
-        await indexingService.removeEntry(entryUid);
-        console.log(`Entry deleted, removed from index: ${entryUid}`);
-        
-        res.json({
-          status: 'success',
-          message: 'Entry was deleted and removed from index',
-          entryUid,
-          contentType,
-          metadata: {
-            stackApiKey,
-            environment,
-            timestamp: new Date().toISOString(),
-          },
-        });
-        return;
-      }
-
-      // Update the entry in the index
-      const success = await indexingService.updateEntry(entry, contentType, stackApiKey);
-
-      if (success) {
-        console.log(`Entry updated in index: ${entryUid}`);
-        res.json({
-          status: 'success',
-          message: 'Entry updated in index',
-          entryUid,
-          contentType,
-          metadata: {
-            stackApiKey,
-            environment,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } else {
-        res.json({
-          status: 'skipped',
-          message: 'Entry was skipped (no text content)',
-          entryUid,
-          contentType,
-          metadata: {
-            stackApiKey,
-            environment,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Entry update failed', {
-        entryUid,
-        contentType,
-        stackApiKey,
-        error: error.message,
-      });
-      throw error;
-    }
-  });
-
-  /**
-   * Get indexing statistics for a specific stack
-   */
-  getIndexingStats = asyncHandler(async (req, res) => {
-    const stackApiKey = req.stackApiKey; // Now comes from middleware validation
-
-    try {
-      // Set the correct index for the stack
-      await vectorSearchService.setStackIndex(stackApiKey);
-
-      // Get index statistics
-      const stats = await vectorSearchService.getIndexStats();
-
-      console.log('Index statistics retrieved', {
-        stackApiKey,
-        stats,
-      });
-
+    } else {
       res.json({
-        status: 'success',
-        data: {
-          stackApiKey,
-          indexStats: stats,
-          timestamp: new Date().toISOString(),
-        },
+        success: false,
+        message: `Entry could not be indexed: ${entry.uid} (likely no text content)`
       });
-    } catch (error) {
-      console.error('Failed to get indexing stats', {
-        stackApiKey,
-        error: error.message,
-      });
-      throw error;
     }
-  });
 
-  /**
-   * Clear entire stack-specific index (use with caution!)
-   */
-  clearIndex = asyncHandler(async (req, res) => {
-    const stackApiKey = req.stackApiKey; // Now comes from middleware validation
+  } catch (error) {
+    console.error('Single entry indexing failed:', error);
+    throw error;
+  }
+});
 
-    try {
-      // Set the correct index for the stack
-      await vectorSearchService.setStackIndex(stackApiKey);
+const removeEntry = asyncHandler(async (req, res) => {
+  const stackApiKey = req.stackApiKey;
+  const { entryUid } = req.body;
 
-      // Clear the index
-      await vectorSearchService.clearIndex();
+  if (!entryUid) {
+    throw new AppError('Entry UID is required', 400);
+  }
 
-      console.log(`Index cleared for stack: ${stackApiKey}`);
+  try {
+    await vectorSearchService.setStackIndex(stackApiKey);
+    const success = await indexingService.removeEntry(entryUid);
 
+    if (success) {
       res.json({
-        status: 'success',
-        message: 'Index cleared successfully',
-        warning: 'This action cannot be undone!',
-        metadata: {
-          stackApiKey,
-          timestamp: new Date().toISOString(),
-        },
+        success: true,
+        message: `Entry removed from index: ${entryUid}`
       });
-    } catch (error) {
-      console.error('Failed to clear index', {
-        stackApiKey,
-        error: error.message,
+    } else {
+      res.json({
+        success: false,
+        message: `Entry could not be removed: ${entryUid}`
       });
-      throw error;
     }
-  });
-}
 
-const syncController = new SyncController();
-module.exports = syncController;
+  } catch (error) {
+    throw error;
+  }
+});
+
+const updateEntry = asyncHandler(async (req, res) => {
+  const stackApiKey = req.stackApiKey;
+  const { entry, contentType } = req.body;
+
+  if (!entry || !contentType) {
+    throw new AppError('Entry and contentType are required', 400);
+  }
+
+  try {
+    const success = await indexingService.updateEntry(entry, contentType, stackApiKey);
+
+    if (success) {
+      res.json({
+        success: true,
+        message: `Entry updated in index: ${entry.uid}`
+      });
+    } else {
+      res.json({
+        success: false,
+        message: `Entry could not be updated: ${entry.uid}`
+      });
+    }
+
+  } catch (error) {
+    throw error;
+  }
+});
+
+const getIndexingStats = asyncHandler(async (req, res) => {
+  const stackApiKey = req.stackApiKey;
+
+  try {
+    await vectorSearchService.setStackIndex(stackApiKey);
+    const stats = await vectorSearchService.getIndexStats();
+    const formattedStats = {
+      totalVectors: stats?.totalVectorCount || stats?.vectorCount || 0,
+      dimensions: stats?.dimension || 1536,
+      indexFullness: stats?.indexFullness || 0,
+      namespaces: stats?.namespaces || {},
+      totalEntries: stats?.totalVectorCount || 0,
+      lastUpdated: new Date().toISOString(),
+      indexName: stats?.indexName || `semantic-search-${stackApiKey}`,
+      status: 'ready'
+    };
+
+    res.json({
+      success: true,
+      stats: formattedStats,
+      stackApiKey,
+      totalVectors: formattedStats.totalVectors,
+      dimensions: formattedStats.dimensions,
+      indexInfo: {
+        totalVectors: formattedStats.totalVectors,
+        dimensions: formattedStats.dimensions,
+        lastUpdated: formattedStats.lastUpdated
+      }
+    });
+
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      stats: {
+        totalVectors: 0,
+        dimensions: 1536,
+        indexFullness: 0,
+        namespaces: {},
+        totalEntries: 0,
+        lastUpdated: new Date().toISOString(),
+        indexName: `semantic-search-${stackApiKey}`,
+        status: 'error'
+      },
+      stackApiKey,
+      totalVectors: 0,
+      dimensions: 1536,
+      indexInfo: {
+        totalVectors: 0,
+        dimensions: 1536,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+  }
+});
+
+const clearIndex = asyncHandler(async (req, res) => {
+  const stackApiKey = req.stackApiKey;
+
+  try {
+    await vectorSearchService.setStackIndex(stackApiKey);
+    await vectorSearchService.clearIndex();
+
+    res.json({
+      success: true,
+      message: `Index cleared for stack: ${stackApiKey}`
+    });
+
+  } catch (error) {
+    throw error;
+  }
+});
+
+module.exports = {
+  indexAllEntries,
+  indexEntry,
+  removeEntry,
+  updateEntry,
+  getIndexingStats,
+  clearIndex,
+};

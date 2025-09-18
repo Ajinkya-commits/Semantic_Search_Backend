@@ -1,23 +1,16 @@
 const express = require('express');
 const syncController = require('../controllers/syncController');
-const { validateSyncRequest } = require('../middleware/validation');
-const { ensureStackIsolation, validateStackToken, validateStackIndex } = require('../middleware/stackValidation');
+const { autoDetectStackApiKey } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.use(ensureStackIsolation);
+router.use(autoDetectStackApiKey);
 
-router.post('/index-all', validateSyncRequest, validateStackToken, validateStackIndex, syncController.indexAllEntries);
-
-router.post('/index-entry', validateSyncRequest, validateStackToken, validateStackIndex, syncController.indexEntry);
-
-router.post('/remove-entry', validateSyncRequest, validateStackToken, validateStackIndex, syncController.removeEntry);
-
-router.post('/update-entry', validateSyncRequest, validateStackToken, validateStackIndex, syncController.updateEntry);
-
-router.get('/stats', validateStackToken, validateStackIndex, syncController.getIndexingStats);
-
-
-router.delete('/clear-index', validateStackToken, validateStackIndex, syncController.clearIndex);
+router.post('/index-all', syncController.indexAllEntries);
+router.post('/index-entry', syncController.indexEntry);
+router.post('/remove-entry', syncController.removeEntry);
+router.post('/update-entry', syncController.updateEntry);
+router.get('/stats', syncController.getIndexingStats);
+router.delete('/clear-index', syncController.clearIndex);
 
 module.exports = router;

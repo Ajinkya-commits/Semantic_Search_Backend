@@ -1,176 +1,113 @@
-const OAuthToken = require("../models/OAuthToken");
-const { AppError } = require("../shared/middleware/errorHandler");
+const axios = require('axios');
+const config = require('../config');
+const { AppError } = require('../middleware/errorHandler');
+const OAuthToken = require('../models/OAuthToken');
 
-class TokenService {
-  async saveOrUpdateToken(tokenData) {
-    try {
-      const {
+const saveOrUpdateToken = async (tokenData) => {
+  try {
+    const { stackApiKey, accessToken, refreshToken, expiresIn, expiresAt } = tokenData;
+    let calculatedExpiresAt;
+    if (expiresAt) {
+      calculatedExpiresAt = new Date(expiresAt);
+    } else if (expiresIn) {
+      calculatedExpiresAt = new Date(Date.now() + (expiresIn * 1000));
+    } else {
+      calculatedExpiresAt = new Date(Date.now() + (3600 * 1000));
+    }
+
+    const existingToken = await OAuthToken.findOne({ stackApiKey });
+
+    if (existingToken) {
+      existingToken.accessToken = accessToken;
+      existingToken.refreshToken = refreshToken;
+      existingToken.expiresAt = calculatedExpiresAt;
+      existingToken.lastUsed = new Date();
+      await existingToken.save();
+      return existingToken;
+    } else {
+      const newToken = new OAuthToken({
         stackApiKey,
-        organizationUid,
         accessToken,
         refreshToken,
-        expiresIn,
-      } = tokenData;
-
-      if (!stackApiKey || !organizationUid || !accessToken || !refreshToken) {
-        throw new AppError("Missing required token data", 400);
-      }
-
-      // Calculate expiration date
-      const expiresAt = new Date(Date.now() + expiresIn * 1000);
-
-      // Check if token already exists
-      const existingToken = await OAuthToken.findOne({ stackApiKey });
-
-      if (existingToken) {
-        // Update existing token
-        existingToken.organizationUid = organizationUid;
-        existingToken.accessToken = accessToken;
-        existingToken.refreshToken = refreshToken;
-        existingToken.expiresAt = expiresAt;
-        existingToken.isActive = true;
-        existingToken.lastUsed = new Date();
-
-        await existingToken.save();
-        console.info(`Updated OAuth token for stack: ${stackApiKey}`);
-        return existingToken;
-      } else {
-        // Create new token
-        const newToken = new OAuthToken({
-          stackApiKey,
-          organizationUid,
-          accessToken,
-          refreshToken,
-          expiresAt,
-          isActive: true,
-        });
-
-        await newToken.save();
-        console.info(`Created new OAuth token for stack: ${stackApiKey}`);
-        return newToken;
-      }
-    } catch (error) {
-      console.error("Failed to save or update token", {
-        error: error.message,
-        stackApiKey: tokenData?.stackApiKey,
+        expiresAt: calculatedExpiresAt,
+        lastUsed: new Date()
       });
-      throw error;
+      await newToken.save();
+      return newToken;
     }
+  } catch (error) {
+    throw error;
   }
+};
 
-  async getValidAccessToken(stackApiKey) {
-    try {
-      const token = await OAuthToken.findActiveByStackApiKey(stackApiKey);
-
-      if (!token) {
-        throw new AppError(
-          `No valid token found for stack: ${stackApiKey}`,
-          401
-        );
-      }
-
-      if (token.isExpired()) {
-        // Token is expired, mark as inactive
-        token.isActive = false;
-        await token.save();
-        throw new AppError(`Token expired for stack: ${stackApiKey}`, 401);
-      }
-
-      // Update last used timestamp
-      await token.updateLastUsed();
-
-      return token; // Return the full token document, not just token.accessToken
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      console.error("Failed to get valid access token", {
-        stackApiKey,
-        error: error.message,
-      });
-      throw new AppError("Failed to get access token", 500);
+const getValidAccessToken = async (stackApiKey) => {
+  try {
+    const token = await OAuthToken.findOne({ stackApiKey });
+    
+    if (!token) {
+      throw new AppError('No token found for stack. Please authenticate first.', 404);
     }
-  }
+    const fiveMinutesFromNow = new Date(Date.now() + (5 * 60 * 1000));
+    const needsRefresh = token.expiresAt <= fiveMinutesFromNow;
 
-  async refreshAccessToken(stackApiKey) {
-    try {
-      const token = await OAuthToken.findOne({
-        stackApiKey,
-        isActive: true,
-      });
-
-      if (!token) {
-        throw new AppError(`No token found for stack: ${stackApiKey}`, 404);
-      }
-
-      // This would typically make a request to Contentstack to refresh the token
-      // For now, we'll just return the existing token
-      // In a real implementation, you'd call the Contentstack token refresh endpoint
-
-      console.warn(`Token refresh not implemented for stack: ${stackApiKey}`);
-      return token;
-    } catch (error) {
-      console.error("Failed to refresh access token", {
-        stackApiKey,
-        error: error.message,
-      });
-      throw error;
+    if (needsRefresh) {
+      const newAccessToken = await refreshAccessToken(stackApiKey);
+      return newAccessToken;
     }
+    token.lastUsed = new Date();
+    await token.save();
+    return token.accessToken;
+  } catch (error) {
+    throw error;
   }
+};
 
-  async deactivateToken(stackApiKey) {
-    try {
-      const result = await OAuthToken.updateOne(
-        { stackApiKey },
-        { isActive: false }
-      );
-
-      if (result.modifiedCount > 0) {
-        console.info(`Deactivated token for stack: ${stackApiKey}`);
-        return true;
-      } else {
-        console.warn(`No token found to deactivate for stack: ${stackApiKey}`);
-        return false;
-      }
-    } catch (error) {
-      console.error("Failed to deactivate token", {
-        stackApiKey,
-        error: error.message,
-      });
-      throw error;
+const refreshAccessToken = async (stackApiKey) => {
+  try {
+    const token = await OAuthToken.findOne({ stackApiKey });
+    
+    if (!token || !token.refreshToken) {
+      throw new AppError('No refresh token found for stack', 404);
     }
-  }
 
-  async getActiveTokens() {
-    try {
-      return await OAuthToken.findActiveTokens();
-    } catch (error) {
-      console.error("Failed to get active tokens", {
-        error: error.message,
-      });
-      throw error;
+    const response = await axios.post(`${config.apis.contentstack.baseUrl.replace('/v3', '')}/oauth/token`, {
+      grant_type: 'refresh_token',
+      refresh_token: token.refreshToken,
+      client_id: config.apis.contentstack.clientId,
+      client_secret: config.apis.contentstack.clientSecret,
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    });
+
+    const tokenData = response.data;
+
+    if (!tokenData.access_token) {
+      throw new AppError('Invalid token response from Contentstack', 500);
     }
-  }
 
-  async cleanupExpiredTokens() {
-    try {
-      return await OAuthToken.deactivateExpiredTokens();
-    } catch (error) {
-      console.error("Failed to cleanup expired tokens", {
-        error: error.message,
-      });
-      throw error;
+    const expiresIn = tokenData.expires_in || 3600;
+    const expiresAt = new Date(Date.now() + (expiresIn * 1000));
+
+    token.accessToken = tokenData.access_token;
+    token.refreshToken = tokenData.refresh_token || token.refreshToken;
+    token.expiresAt = expiresAt;
+    token.lastUsed = new Date();
+    await token.save();
+
+    return token.accessToken;
+  } catch (error) {
+    if (error.response?.status === 400 || error.response?.status === 401) {
+      throw new AppError('Refresh token expired - re-authentication required', 401);
     }
+    throw new AppError(`Failed to refresh access token: ${error.message}`, 500);
   }
-}
-
-const tokenService = new TokenService();
+};
 
 module.exports = {
-  saveOrUpdateToken: tokenService.saveOrUpdateToken.bind(tokenService),
-  getValidAccessToken: tokenService.getValidAccessToken.bind(tokenService),
-  refreshAccessToken: tokenService.refreshAccessToken.bind(tokenService),
-  deactivateToken: tokenService.deactivateToken.bind(tokenService),
-  getActiveTokens: tokenService.getActiveTokens.bind(tokenService),
-  cleanupExpiredTokens: tokenService.cleanupExpiredTokens.bind(tokenService),
+  saveOrUpdateToken,
+  getValidAccessToken,
+  refreshAccessToken,
 };

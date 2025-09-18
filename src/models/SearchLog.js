@@ -32,7 +32,7 @@ const searchLogSchema = new mongoose.Schema({
   },
   ipAddress: {
     type: String,
-    maxlength: 45, // IPv6 max length
+    maxlength: 45, 
   },
   environment: {
     type: String,
@@ -56,16 +56,13 @@ const searchLogSchema = new mongoose.Schema({
   versionKey: false,
 });
 
-// Indexes for analytics and performance
 searchLogSchema.index({ createdAt: -1 });
 searchLogSchema.index({ stackApiKey: 1, createdAt: -1 });
 searchLogSchema.index({ success: 1, createdAt: -1 });
 searchLogSchema.index({ environment: 1, createdAt: -1 });
 
-// TTL index to automatically delete old logs (30 days)
 searchLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
-// Static methods for analytics
 searchLogSchema.statics.getSearchStats = function(stackApiKey, startDate, endDate) {
   const matchStage = {
     stackApiKey,

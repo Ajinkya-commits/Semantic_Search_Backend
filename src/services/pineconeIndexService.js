@@ -1,264 +1,170 @@
 const { Pinecone } = require('@pinecone-database/pinecone');
 const config = require('../config');
-const { AppError } = require('../shared/middleware/errorHandler');
+const { AppError } = require('../middleware/errorHandler');
 
-class PineconeIndexService {
-  constructor() {
-    this.apiKey = config.apis.pinecone.apiKey;
-    this.environment = config.apis.pinecone.environment;
-    this.pinecone = null;
-    this.isInitialized = false;
+let pinecone = null;
+let isInitialized = false;
+
+const initialize = async () => {
+  if (isInitialized) {
+    return;
   }
 
-  async initialize() {
-    if (this.isInitialized) {
-      return;
-    }
-
-    try {
-      console.info('Initializing Pinecone connection for index management...');
-      
-      this.pinecone = new Pinecone({ 
-        apiKey: this.apiKey,
-      });
-      
-      this.isInitialized = true;
-      console.info('✅ Pinecone connection initialized for index management');
-    } catch (error) {
-      console.error('❌ Failed to initialize Pinecone connection', {
-        error: error.message,
-      });
-      throw new AppError('Failed to initialize Pinecone index service', 500);
-    }
-  }
-
-  async ensureInitialized() {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-  }
-
-  generateIndexName(stackApiKey) {
-    if (!stackApiKey || typeof stackApiKey !== 'string') {
-      throw new AppError('Stack API key is required', 400);
-    }
-
- 
-    const safeStackKey = stackApiKey.replace(/[^a-zA-Z0-9]/g, '');
-    const indexName = `semantic-search-${safeStackKey}`;
-    return indexName.toLowerCase().substring(0, 45);
-  }
-
-  async indexExists(indexName) {
-    await this.ensureInitialized();
-
-    try {
-      const indexList = await this.pinecone.listIndexes();
-      return indexList.indexes.some(index => index.name === indexName);
-    } catch (error) {
-      console.error('Failed to check if index exists', {
-        indexName,
-        error: error.message,
-      });
-      throw new AppError('Failed to check index existence', 500);
-    }
-  }
-
-
-  async createStackIndex(stackApiKey) {
-    await this.ensureInitialized();
-
-    const indexName = this.generateIndexName(stackApiKey);
+  try {
+    pinecone = new Pinecone({ 
+      apiKey: config.apis.pinecone.apiKey,
+    });
     
-    try {
-      // Check if index already exists
-      const exists = await this.indexExists(indexName);
-      if (exists) {
-        console.info(`Index ${indexName} already exists for stack ${stackApiKey}`);
-        return {
-          success: true,
-          indexName,
-          message: 'Index already exists',
-          created: false,
-        };
-      }
+    isInitialized = true;
+  } catch (error) {
+    throw new AppError('Failed to initialize Pinecone index service', 500);
+  }
+};
 
-      console.info(`Creating new Pinecone index: ${indexName} for stack: ${stackApiKey}`);
+const ensureInitialized = async () => {
+  if (!isInitialized) {
+    await initialize();
+  }
+};
 
-      // Create the index with appropriate configuration
-      await this.pinecone.createIndex({
-        name: indexName,
-        dimension: 1536, // Cohere embedding dimension
-        metric: 'cosine',
-        spec: {
-          serverless: {
-            cloud: 'aws',
-            region: this.environment || 'us-east-1',
-          },
-        },
-      });
-
-      // Wait for index to be ready
-      await this.waitForIndexReady(indexName);
-
-      console.info(`✅ Successfully created index: ${indexName} for stack: ${stackApiKey}`);
-
-      return {
-        success: true,
-        indexName,
-        message: 'Index created successfully',
-        created: true,
-      };
-    } catch (error) {
-      console.error('Failed to create stack index', {
-        stackApiKey,
-        indexName,
-        error: error.message,
-      });
-      throw new AppError(`Failed to create index for stack: ${error.message}`, 500);
-    }
+const generateIndexName = (stackApiKey) => {
+  if (!stackApiKey || typeof stackApiKey !== 'string') {
+    throw new AppError('Stack API key is required', 400);
   }
 
+  const safeStackKey = stackApiKey.replace(/[^a-zA-Z0-9]/g, '');
+  const indexName = `semantic-search-${safeStackKey}`;
+  return indexName.toLowerCase().substring(0, 45);
+};
 
-  async waitForIndexReady(indexName, maxWaitTime = 60000) {
-    const startTime = Date.now();
-    const checkInterval = 2000; // Check every 2 seconds
+const createIndex = async (stackApiKey, dimension = 1536) => {
+  await ensureInitialized();
+  
+  const indexName = generateIndexName(stackApiKey);
+  
+  try {
+    const existingIndexes = await pinecone.listIndexes();
+    const indexExists = existingIndexes.indexes?.some(index => index.name === indexName);
+    
+    if (indexExists) {
+      return { indexName, created: false, message: 'Index already exists' };
+    }
 
-    while (Date.now() - startTime < maxWaitTime) {
-      try {
-        const indexList = await this.pinecone.listIndexes();
-        const index = indexList.indexes.find(idx => idx.name === indexName);
-        
-        if (index && index.status?.ready) {
-          console.info(`Index ${indexName} is ready`);
-          return;
+    await pinecone.createIndex({
+      name: indexName,
+      dimension: dimension,
+      metric: 'cosine',
+      spec: {
+        serverless: {
+          cloud: 'aws',
+          region: 'us-east-1'
         }
-        
-        console.debug(`Waiting for index ${indexName} to be ready...`);
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
+      }
+    });
+
+    let indexReady = false;
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    while (!indexReady && attempts < maxAttempts) {
+      try {
+        const indexDescription = await pinecone.describeIndex(indexName);
+        if (indexDescription.status?.ready) {
+          indexReady = true;
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          attempts++;
+        }
       } catch (error) {
-        console.error('Error checking index status', {
-          indexName,
-          error: error.message,
-        });
-        throw new AppError('Failed to check index status', 500);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        attempts++;
       }
     }
 
-    throw new AppError(`Index ${indexName} did not become ready within ${maxWaitTime}ms`, 500);
-  }
-
-
-  async deleteStackIndex(stackApiKey) {
-    await this.ensureInitialized();
-
-    const indexName = this.generateIndexName(stackApiKey);
-    
-    try {
-      const exists = await this.indexExists(indexName);
-      if (!exists) {
-        console.info(`Index ${indexName} does not exist for stack ${stackApiKey}`);
-        return {
-          success: true,
-          indexName,
-          message: 'Index does not exist',
-          deleted: false,
-        };
-      }
-
-      console.info(`Deleting Pinecone index: ${indexName} for stack: ${stackApiKey}`);
-
-      await this.pinecone.deleteIndex(indexName);
-
-      console.info(`✅ Successfully deleted index: ${indexName} for stack: ${stackApiKey}`);
-
-      return {
-        success: true,
-        indexName,
-        message: 'Index deleted successfully',
-        deleted: true,
-      };
-    } catch (error) {
-      console.error('Failed to delete stack index', {
-        stackApiKey,
-        indexName,
-        error: error.message,
-      });
-      throw new AppError(`Failed to delete index for stack: ${error.message}`, 500);
+    if (!indexReady) {
+      throw new AppError('Index creation timed out', 500);
     }
-  }
 
+    return { indexName, created: true, message: 'Index created successfully' };
 
-  async getStackIndexInfo(stackApiKey) {
-    await this.ensureInitialized();
-
-    const indexName = this.generateIndexName(stackApiKey);
-    
-    try {
-      const exists = await this.indexExists(indexName);
-      if (!exists) {
-        return {
-          exists: false,
-          indexName,
-          message: 'Index does not exist',
-        };
-      }
-
-      const indexList = await this.pinecone.listIndexes();
-      const index = indexList.indexes.find(idx => idx.name === indexName);
-
-      return {
-        exists: true,
-        indexName,
-        status: index.status,
-        dimension: index.dimension,
-        metric: index.metric,
-        createdAt: index.createdAt,
-      };
-    } catch (error) {
-      console.error('Failed to get stack index info', {
-        stackApiKey,
-        indexName,
-        error: error.message,
-      });
-      throw new AppError(`Failed to get index info for stack: ${error.message}`, 500);
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
     }
+    throw new AppError(`Failed to create index: ${error.message}`, 500);
   }
+};
 
-  async listSemanticSearchIndexes() {
-    await this.ensureInitialized();
-
-    try {
-      const indexList = await this.pinecone.listIndexes();
-      const semanticIndexes = indexList.indexes.filter(index => 
-        index.name.startsWith('semantic-search-')
-      );
-
-      return semanticIndexes.map(index => ({
-        name: index.name,
-        status: index.status,
-        dimension: index.dimension,
-        metric: index.metric,
-        createdAt: index.createdAt,
-        stackApiKey: this.extractStackApiKeyFromIndexName(index.name),
-      }));
-    } catch (error) {
-      console.error('Failed to list semantic search indexes', {
-        error: error.message,
-      });
-      throw new AppError('Failed to list semantic search indexes', 500);
+const deleteIndex = async (stackApiKey) => {
+  await ensureInitialized();
+  
+  const indexName = generateIndexName(stackApiKey);
+  
+  try {
+    await pinecone.deleteIndex(indexName);
+    return { indexName, deleted: true, message: 'Index deleted successfully' };
+  } catch (error) {
+    if (error.status === 404) {
+      return { indexName, deleted: false, message: 'Index does not exist' };
     }
+    throw new AppError(`Failed to delete index: ${error.message}`, 500);
   }
+};
 
-  extractStackApiKeyFromIndexName(indexName) {
-    if (!indexName.startsWith('semantic-search-')) {
+const listIndexes = async () => {
+  await ensureInitialized();
+  
+  try {
+    const response = await pinecone.listIndexes();
+    return response.indexes || [];
+  } catch (error) {
+    throw new AppError(`Failed to list indexes: ${error.message}`, 500);
+  }
+};
+
+const getIndexInfo = async (stackApiKey) => {
+  await ensureInitialized();
+  
+  const indexName = generateIndexName(stackApiKey);
+  
+  try {
+    const indexDescription = await pinecone.describeIndex(indexName);
+    return {
+      name: indexName,
+      dimension: indexDescription.dimension,
+      metric: indexDescription.metric,
+      status: indexDescription.status,
+      spec: indexDescription.spec
+    };
+  } catch (error) {
+    if (error.status === 404) {
       return null;
     }
-    
-    return indexName.replace('semantic-search-', '');
+    throw new AppError(`Failed to get index info: ${error.message}`, 500);
   }
-}
+};
 
-const pineconeIndexService = new PineconeIndexService();
+const ensureIndexExists = async (stackApiKey, dimension = 1536) => {
+  const indexInfo = await getIndexInfo(stackApiKey);
+  
+  if (!indexInfo) {
+    const result = await createIndex(stackApiKey, dimension);
+    return result;
+  }
+  
+  return { 
+    indexName: indexInfo.name, 
+    created: false, 
+    message: 'Index already exists' 
+  };
+};
 
-module.exports = pineconeIndexService;
+module.exports = {
+  initialize,
+  generateIndexName,
+  createIndex,
+  deleteIndex,
+  listIndexes,
+  getIndexInfo,
+  ensureIndexExists,
+};
