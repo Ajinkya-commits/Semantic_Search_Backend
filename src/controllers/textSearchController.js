@@ -3,7 +3,10 @@ const embeddingsService = require("../services/embeddingsService");
 const vectorSearchService = require("../services/vectorSearchService");
 const contentstackService = require("../services/contentstackService");
 const rerankerService = require("../services/rerankerService");
-const { enrichResultsWithContentstackData, logSearch } = require("../utils/searchHelpers");
+const {
+  enrichResultsWithContentstackData,
+  logSearch,
+} = require("../utils/searchHelpers");
 
 const semanticSearch = asyncHandler(async (req, res) => {
   const startTime = Date.now();
@@ -96,15 +99,7 @@ const semanticSearch = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     const responseTime = Date.now() - startTime;
-    await logSearch(
-      req,
-      query,
-      0,
-      filters,
-      responseTime,
-      false,
-      error.message
-    );
+    await logSearch(req, query, 0, filters, responseTime, false, error.message);
 
     console.error("Semantic search failed", {
       query,
