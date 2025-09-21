@@ -13,7 +13,6 @@ router.get('/entries', authenticateStack, textSearchController.getAllEntries);
 // Analytics routes
 router.get('/analytics', authenticateStack, searchAnalyticsController.getSearchAnalytics);
 router.get('/stats', authenticateStack, searchAnalyticsController.getSearchStats);
-router.get('/performance', authenticateStack, searchAnalyticsController.getPerformanceMetrics);
 
 // Sync routes
 router.get('/sync/stats', authenticateStack, syncController.getIndexingStats);

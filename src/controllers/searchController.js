@@ -154,106 +154,6 @@ const getAllEntries = asyncHandler(async (req, res) => {
   });
 });
 
-const searchByImage = asyncHandler(async (req, res) => {
-  const { imageUrl, limit = 10, filters = {} } = req.body;
-  const stackApiKey = req.stackApiKey;
-
-  if (!imageUrl) {
-    throw new AppError('Image URL is required', 400);
-  }
-
-  const queryEmbedding = await imageEmbeddingService.generateImageEmbedding(imageUrl);
-
-  const results = await vectorSearchService.searchImages(
-    queryEmbedding,
-    limit,
-    filters,
-    0.0,
-    stackApiKey
-  );
-
-  res.json({
-    success: true,
-    imageUrl,
-    results,
-    total: results.length
-  });
-});
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new AppError('Only image files are allowed', 400), false);
-    }
-  }
-});
-
-const searchByUploadedImage = asyncHandler(async (req, res) => {
-  const { limit = 10, filters = {} } = req.body;
-  const stackApiKey = req.stackApiKey;
-
-  if (!req.file) {
-    throw new AppError('Image file is required', 400);
-  }
-
-  const dataUri = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-  
-  const queryEmbedding = await imageEmbeddingService.generateImageEmbedding(dataUri);
-
-  const results = await vectorSearchService.searchImages(
-    queryEmbedding,
-    limit,
-    filters,
-    0.0,
-    stackApiKey
-  );
-
-  res.json({
-    success: true,
-    results,
-    total: results.length
-  });
-});
-
-const searchHybrid = asyncHandler(async (req, res) => {
-  const { query, imageUrl, limit = 10, textWeight = 0.7, imageWeight = 0.3 } = req.body;
-  const stackApiKey = req.stackApiKey;
-
-  if (!query && !imageUrl) {
-    throw new AppError('Either query or imageUrl is required', 400);
-  }
-
-  let queryEmbedding;
-  if (query) {
-    queryEmbedding = await embeddingsService.generateTextEmbedding(query, 'search_query');
-  } else {
-    queryEmbedding = await imageEmbeddingService.generateImageEmbedding(imageUrl);
-  }
-
-  const results = await vectorSearchService.searchHybrid(
-    queryEmbedding,
-    limit,
-    {
-      textWeight: parseFloat(textWeight),
-      imageWeight: parseFloat(imageWeight),
-      similarityThreshold: 0.0
-    },
-    stackApiKey
-  );
-
-  res.json({
-    success: true,
-    query,
-    imageUrl,
-    results,
-    total: results.length
-  });
-});
-
 const getSearchAnalytics = asyncHandler(async (req, res) => {
   const stackApiKey = req.stackApiKey;
 
@@ -265,9 +165,9 @@ const getSearchAnalytics = asyncHandler(async (req, res) => {
       stats,
       capabilities: {
         textSearch: true,
-        imageSearch: true,
-        hybridSearch: true,
-        uploadSearch: true
+        imageSearch: false,
+        hybridSearch: false,
+        uploadSearch: false
       },
       indexInfo: {
         totalVectors: stats.totalVectors,
@@ -285,9 +185,5 @@ module.exports = {
   searchText,
   semanticSearch,
   getAllEntries,
-  searchByImage,
-  searchByUploadedImage,
-  searchHybrid,
   getSearchAnalytics,
-  uploadMiddleware: upload.single('image')
 };

@@ -24,9 +24,9 @@ const rerankResults = async (query, results, topK = 10) => {
     }
 
     const response = await axios.post(
-      "https://api.cohere.ai/v1/rerank",
+      `${config.apis.cohere.baseUrl}/rerank`,
       {
-        model: "rerank-v3.5",
+        model: config.apis.cohere.models.rerank,
         query: query,
         documents: documents,
         top_k: Math.min(topK, documents.length),

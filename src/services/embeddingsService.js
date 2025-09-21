@@ -19,7 +19,7 @@ const generateTextEmbedding = async (text, inputType = 'search_document') => {
       `${config.apis.cohere.baseUrl}/embed`,
       {
         texts: [text.trim()],
-        model: config.apis.cohere.models.embedding,
+        model: config.apis.cohere.models.embed,
         input_type: inputType,
         truncate: 'END',
       },
@@ -54,6 +54,7 @@ const generateTextEmbedding = async (text, inputType = 'search_document') => {
   }
 };
 
+/*
 const generateImageEmbedding = async (imageUrl, inputType = 'search_document') => {
   if (!imageUrl || typeof imageUrl !== 'string') {
     throw new AppError('Image URL must be a non-empty string', 400);
@@ -105,8 +106,9 @@ const generateImageEmbedding = async (imageUrl, inputType = 'search_document') =
     throw new AppError('Failed to generate image embedding', 500);
   }
 };
+*/
 
 module.exports = {
   generateTextEmbedding,
-  generateImageEmbedding,
+  // generateImageEmbedding,
 };

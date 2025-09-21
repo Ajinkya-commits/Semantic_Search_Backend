@@ -1,81 +1,10 @@
 const { AppError } = require('../middleware/errorHandler');
 const embeddingsService = require('./embeddingsService');
-const imageEmbeddingService = require('./imageEmbeddingService');
 const vectorSearchService = require('./vectorSearchService');
 const { extractTitleAndRTE, extractStructuredMetadata } = require('../utils/textCleaner');
-const imageExtractor = require('../utils/imageExtractor');
+
 
 const batchSize = 50;
-
-const prepareEntryForIndexing = (entry, contentType) => {
-  if (!entry || !entry.uid) {
-    throw new AppError('Entry must have a UID', 400);
-  }
-
-  try {
-    const enrichedText = extractTitleAndRTE(entry, contentType);
-    
-    if (!enrichedText || enrichedText.trim().length === 0) {
-      return null;
-    }
-
-    const metadata = extractStructuredMetadata(entry, new Set(['title']));
-    
-    const systemMetadata = {
-      contentType,
-      locale: entry.locale || 'en-us',
-      createdAt: entry.created_at,
-      updatedAt: entry.updated_at,
-      version: entry._version || 1,
-    };
-
-    return {
-      uid: entry.uid,
-      text: enrichedText,
-      metadata: {
-        ...metadata,
-        ...systemMetadata,
-      },
-    };
-  } catch (error) {
-    throw new AppError(`Failed to prepare entry for indexing: ${error.message}`, 500);
-  }
-};
-
-const prepareImagesForIndexing = (entry, contentType) => {
-  if (!entry || !entry.uid) {
-    return [];
-  }
-
-  try {
-    const images = imageExtractor.getEmbeddableImages(entry, {
-      maxImages: 3
-    });
-
-    if (images.length === 0) {
-      return [];
-    }
-
-    const preparedImages = images.map((imageObj, index) => ({
-      id: `${entry.uid}_image_${index}`,
-      url: imageObj.url,
-      metadata: {
-        entryUid: entry.uid,
-        contentType,
-        locale: entry.locale || 'en-us',
-        imageIndex: index,
-        fieldPath: imageObj.fieldPath,
-        imageType: imageObj.type,
-        ...imageObj.metadata,
-      }
-    }));
-
-    return preparedImages;
-  } catch (error) {
-    return [];
-  }
-};
-
 const indexEntryWithImages = async (entry, contentType, stackApiKey = null) => {
   try {
     let textIndexed = false;
@@ -85,43 +14,20 @@ const indexEntryWithImages = async (entry, contentType, stackApiKey = null) => {
       await vectorSearchService.setStackIndex(stackApiKey);
     }
 
-    const preparedEntry = prepareEntryForIndexing(entry, contentType);
-    if (preparedEntry) {
-      const embedding = await embeddingsService.generateTextEmbedding(preparedEntry.text);
+    const cleanedText = extractTitleAndRTE(entry, contentType);
+    if (cleanedText && cleanedText.trim().length > 0) {
+      const embedding = await embeddingsService.generateTextEmbedding(cleanedText);
+      const metadata = extractStructuredMetadata(entry, contentType);
       
       await vectorSearchService.indexEntry(
-        preparedEntry.uid,
-        preparedEntry.text,
+        entry.uid,
+        cleanedText,
         embedding,
-        preparedEntry.metadata,
+        metadata,
         stackApiKey
       );
       textIndexed = true;
     }
-
-    // Skip image indexing for now to avoid errors
-    // const images = prepareImagesForIndexing(entry, contentType);
-    // if (images.length > 0) {
-    //   for (const imageData of images) {
-    //     try {
-    //       const imageResult = await imageEmbeddingService.generateImageEmbedding(imageData.url);
-    //       
-    //       if (imageResult && imageResult.embedding) {
-    //         await vectorSearchService.indexImage(
-    //           imageData.id,
-    //           imageData.url,
-    //           imageResult.embedding,
-    //           imageData.metadata,
-    //           stackApiKey
-    //         );
-    //         imagesIndexed++;
-    //       }
-    //     } catch (error) {
-    //       console.warn('Failed to index image, skipping:', error.message);
-    //     }
-    //   }
-    // }
-    
     return { textIndexed, imagesIndexed };
   } catch (error) {
     throw error;

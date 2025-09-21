@@ -1,10 +1,10 @@
-require('dotenv').config();
+require("dotenv").config();
 
 const config = {
   server: {
     port: process.env.PORT || 8000,
-    env: process.env.NODE_ENV || 'development',
-    host: process.env.HOST || 'localhost',
+    env: process.env.NODE_ENV || "development",
+    host: process.env.HOST || "localhost",
   },
 
   database: {
@@ -14,11 +14,10 @@ const config = {
   apis: {
     cohere: {
       apiKey: process.env.COHERE_API_KEY,
-      baseUrl: 'https://api.cohere.com/v1',
+      baseUrl: "https://api.cohere.ai/v1",
       models: {
-        embedding: 'embed-v4.0',
-        rerank: 'rerank-v3.5',
-        multimodal: 'embed-v4.0',
+        embed: "embed-v4.0",
+        rerank: "rerank-v3.5",
       },
     },
     pinecone: {
@@ -27,11 +26,16 @@ const config = {
       environment: process.env.PINECONE_ENVIRONMENT,
     },
     contentstack: {
-      baseUrl: 'https://eu-api.contentstack.com/v3',
+      baseUrl: "https://eu-api.contentstack.com/v3",
       clientId: process.env.CONTENTSTACK_CLIENT_ID,
       clientSecret: process.env.CONTENTSTACK_CLIENT_SECRET,
       redirectUri: process.env.CONTENTSTACK_REDIRECT_URI,
       appUid: process.env.CONTENTSTACK_APP_UID,
+    },
+    gemini: {
+      apiKey: process.env.GEMINI_API_KEY,
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      model: "gemini-pro",
     },
   },
 
@@ -55,16 +59,23 @@ const config = {
 };
 
 const requiredEnvVars = [
-  'COHERE_API_KEY',
-  'PINECONE_API_KEY',
-  'PINECONE_INDEX_NAME',
-  'MONGO_URI',
+  "CONTENTSTACK_CLIENT_ID",
+  "CONTENTSTACK_CLIENT_SECRET",
+  "CONTENTSTACK_REDIRECT_URI",
+  "CONTENTSTACK_APP_UID",
+  "COHERE_API_KEY",
+  "PINECONE_API_KEY",
+  "PINECONE_INDEX_NAME",
+  "MONGO_URI",
+  "GEMINI_API_KEY",
 ];
 
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  throw new Error(
+    `Missing required environment variables: ${missingEnvVars.join(", ")}`
+  );
 }
 
 module.exports = config;

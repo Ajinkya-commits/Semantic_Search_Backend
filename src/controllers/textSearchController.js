@@ -33,6 +33,7 @@ const semanticSearch = asyncHandler(async (req, res) => {
     }
 
     const metadataFilters = buildMetadataFilters(filters);
+    metadataFilters.type = 'text';
 
     if (stackApiKey) {
       await vectorSearchService.setStackIndex(stackApiKey);
@@ -45,6 +46,8 @@ const semanticSearch = asyncHandler(async (req, res) => {
       0.1,
       stackApiKey
     );
+
+    console.log('Semantic search results types:', vectorResults.map(r => ({ id: r.id, type: r.type })));
 
     if (!vectorResults || vectorResults.length === 0) {
       await logSearch(req, query, 0, filters, Date.now() - startTime, true);
@@ -73,25 +76,30 @@ const semanticSearch = asyncHandler(async (req, res) => {
       stackApiKey,
       environment
     );
+    
+    // Final filter to ensure only text results are returned (not images)
+    const textOnlyResults = fullResults.filter(result => result.type !== 'image');
+    console.log(`Filtered results: ${fullResults.length} -> ${textOnlyResults.length} (removed ${fullResults.length - textOnlyResults.length} image results)`);
+    
     const responseTime = Date.now() - startTime;
 
     await logSearch(
       req,
       query,
-      fullResults.length,
+      textOnlyResults.length,
       filters,
       responseTime,
       true
     );
 
-    res.json({
+    return res.json({
       success: true,
       query,
-      results: fullResults,
-      count: fullResults.length,
+      results: textOnlyResults,
+      count: textOnlyResults.length,
       searchType: "semantic",
       metadata: {
-        totalResults: fullResults.length,
+        totalResults: textOnlyResults.length,
         searchTime: responseTime,
         environment,
         reranked: true,
@@ -126,7 +134,7 @@ const searchText = asyncHandler(async (req, res) => {
   const results = await vectorSearchService.search(
     queryEmbedding,
     parseInt(limit),
-    { type: "text", ...filters },
+    { type: "text", ...buildMetadataFilters(filters) },
     parseFloat(threshold)
   );
 

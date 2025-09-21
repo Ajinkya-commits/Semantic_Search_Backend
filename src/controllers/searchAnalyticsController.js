@@ -50,9 +50,9 @@ const getSearchStats = asyncHandler(async (req, res) => {
       stats,
       capabilities: {
         textSearch: true,
-        imageSearch: true,
-        hybridSearch: true,
-        uploadSearch: true
+        imageSearch: false,
+        hybridSearch: false,
+        uploadSearch: false
       },
       indexInfo: {
         totalVectors: stats?.totalVectors || 0,
@@ -119,5 +119,4 @@ const getPerformanceMetrics = asyncHandler(async (req, res) => {
 module.exports = {
   getSearchAnalytics,
   getSearchStats,
-  getPerformanceMetrics,
 };

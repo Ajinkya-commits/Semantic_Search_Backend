@@ -42,7 +42,7 @@ const ensureInitialized = async (stackApiKey = null) => {
   }
 };
 
-const search = async (queryEmbedding, topK = 10, metadataFilters = {}, similarityThreshold = 0.0, stackApiKey = null) => {
+const search = async (queryEmbedding, topK = 5, metadataFilters = {}, similarityThreshold = 0.7, stackApiKey = null) => {
   await ensureInitialized(stackApiKey);
 
   if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
@@ -73,65 +73,12 @@ const search = async (queryEmbedding, topK = 10, metadataFilters = {}, similarit
         score: match.score,
         text: match.metadata?.text || '',
         contentType: match.metadata?.contentType || 'unknown',
-        locale: match.metadata?.locale || 'en-us',
         ...match.metadata,
       }));
 
     return filteredResults;
   } catch (error) {
     throw new AppError(`Vector search failed: ${error.message}`, 500);
-  }
-};
-
-const searchImages = async (queryEmbedding, topK = 10, metadataFilters = {}, similarityThreshold = 0.0, stackApiKey = null) => {
-  await ensureInitialized(stackApiKey);
-
-  const imageFilters = {
-    type: { $eq: 'image' },
-    ...metadataFilters
-  };
-
-  const results = await search(queryEmbedding, topK, imageFilters, similarityThreshold, stackApiKey);
-  
-  const imageResults = results.filter(result => {
-    const isImage = result.type === 'image' || result.imageUrl;
-    return isImage;
-  });
-
-  return imageResults;
-};
-
-const searchHybrid = async (queryEmbedding, topK = 20, options = {}, stackApiKey = null) => {
-  await ensureInitialized(stackApiKey);
-
-  const {
-    textWeight = 0.7,
-    imageWeight = 0.3,
-    similarityThreshold = 0.0,
-    metadataFilters = {}
-  } = options;
-
-  try {
-    const allResults = await search(queryEmbedding, topK, metadataFilters, similarityThreshold, stackApiKey);
-
-    const textResults = allResults.filter(result => result.type !== 'image');
-    const imageResults = allResults.filter(result => result.type === 'image');
-
-    textResults.forEach(result => {
-      result.weightedScore = result.score * textWeight;
-    });
-
-    imageResults.forEach(result => {
-      result.weightedScore = result.score * imageWeight;
-    });
-
-    const combinedResults = [...textResults, ...imageResults]
-      .sort((a, b) => b.weightedScore - a.weightedScore)
-      .slice(0, topK);
-
-    return combinedResults;
-  } catch (error) {
-    throw new AppError(`Hybrid search failed: ${error.message}`, 500);
   }
 };
 
@@ -163,6 +110,7 @@ const indexEntry = async (entryId, text, vector, metadata = {}, stackApiKey = nu
   }
 };
 
+/*
 const indexImage = async (imageId, imageUrl, vector, metadata = {}, stackApiKey = null) => {
   await ensureInitialized(stackApiKey);
 
@@ -194,6 +142,7 @@ const indexImage = async (imageId, imageUrl, vector, metadata = {}, stackApiKey 
     throw new AppError(`Failed to index image: ${error.message}`, 500);
   }
 };
+*/
 
 const deleteEntry = async (entryId, stackApiKey = null) => {
   await ensureInitialized(stackApiKey);
@@ -236,12 +185,12 @@ const setStackIndex = async (stackApiKey) => {
 
 module.exports = {
   search,
-  searchImages,
-  searchHybrid,
+  // searchImages,
+  // searchHybrid,
   indexEntry,
-  indexImage,
+  // indexImage,
   deleteEntry,
   getIndexStats,
   clearIndex,
-  setStackIndex,
+  setStackIndex
 };

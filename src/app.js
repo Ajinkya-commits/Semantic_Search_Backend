@@ -10,8 +10,11 @@ const config = require('./config');
 const searchRoutes = require('./routes/searchRoutes');
 const configRoutes = require('./routes/configRoutes');
 const syncRoutes = require('./routes/syncRoutes');
+const translationRoutes = require('./routes/translationRoutes');
+const imageSearchRoutes = require('./routes/imageSearchRoutes');
 const oauthCallbackRouter = require('./routes/oauthCallback');
 const webhookRouter = require('./routes/webhookRoutes');
+const assetWebhookRouter = require('./routes/assetWebhookRoutes');
 
 const app = express();
 const port = config.server.port;
@@ -47,8 +50,11 @@ const setupRoutes = () => {
   app.use('/api/search', searchRoutes);
   app.use('/api/config', configRoutes);
   app.use('/api/sync', syncRoutes);
+  app.use('/api/translate', translationRoutes);
+  app.use('/api/image-search', imageSearchRoutes);
   app.use('/', oauthCallbackRouter);
   app.use('/', webhookRouter);
+  app.use('/', assetWebhookRouter);
 };
 
 const setupErrorHandling = () => {
