@@ -55,6 +55,7 @@ const setupRoutes = () => {
   app.use("/api/image-search", imageSearchRoutes);
   app.use("/", oauthCallbackRouter);
   app.use("/", webhookRouter);
+
 };
 
 const setupErrorHandling = () => {

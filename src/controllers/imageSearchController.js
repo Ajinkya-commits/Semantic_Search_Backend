@@ -171,7 +171,7 @@ const searchImageByUpload = asyncHandler(async (req, res) => {
     // Check if Python service is available
     const serviceAvailable = await imageEmbeddingService.checkPythonService();
     if (!serviceAvailable) {
-      throw new AppError('Image embedding service is not available. Please ensure the Python service is running on port 5001.', 503);
+      throw new AppError('Image embedding service is not available. Please ensure the Python service is running on port 5000.', 503);
     }
     
     // Generate embedding from uploaded image
