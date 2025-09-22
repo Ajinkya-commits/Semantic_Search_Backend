@@ -27,7 +27,6 @@ const initialize = async (stackApiKey = null) => {
     index = pinecone.Index(targetIndexName);
     currentIndexName = targetIndexName;
     
-    await pineconeIndexService.ensureIndexExists(stackApiKey);
     await index.describeIndexStats();
     
     isInitialized = true;
@@ -110,40 +109,6 @@ const indexEntry = async (entryId, text, vector, metadata = {}, stackApiKey = nu
   }
 };
 
-/*
-const indexImage = async (imageId, imageUrl, vector, metadata = {}, stackApiKey = null) => {
-  await ensureInitialized(stackApiKey);
-
-  if (!imageId || typeof imageId !== 'string') {
-    throw new AppError('Image ID must be a non-empty string', 400);
-  }
-
-  if (!Array.isArray(vector) || vector.length === 0) {
-    throw new AppError('Vector must be a non-empty array', 400);
-  }
-
-  if (!imageUrl || typeof imageUrl !== 'string') {
-    throw new AppError('Image URL must be a non-empty string', 400);
-  }
-
-  try {
-    const upsertData = {
-      id: imageId,
-      values: vector,
-      metadata: {
-        imageUrl: imageUrl?.substring(0, 40000) || '',
-        type: 'image',
-        ...metadata,
-      },
-    };
-
-    await index.upsert([upsertData]);
-  } catch (error) {
-    throw new AppError(`Failed to index image: ${error.message}`, 500);
-  }
-};
-*/
-
 const deleteEntry = async (entryId, stackApiKey = null) => {
   await ensureInitialized(stackApiKey);
 
@@ -185,10 +150,7 @@ const setStackIndex = async (stackApiKey) => {
 
 module.exports = {
   search,
-  // searchImages,
-  // searchHybrid,
   indexEntry,
-  // indexImage,
   deleteEntry,
   getIndexStats,
   clearIndex,

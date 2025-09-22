@@ -128,7 +128,7 @@ const fetchEntryByUid = async (stackApiKey, contentTypeUid, entryUid, environmen
     
     if (response && response.entry) {
       console.log(`Entry found: ${response.entry.title || response.entry.name || entryUid}`);
-      return { entry: response.entry }; // Wrap in the expected structure
+      return { entry: response.entry };
     } else {
       console.log(`No entry in response for ${entryUid}`);
       return null;

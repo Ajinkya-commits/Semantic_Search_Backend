@@ -25,51 +25,58 @@ async function enrichResultsWithContentstackData(
       ` Enriching ${results.length} results with Contentstack data...`
     );
 
-    const enrichedResults = [];
+    const enrichedResults = await Promise.allSettled(
+      results.map(async (result) => {
+        try {
+          const { id: uid, contentType } = result;
 
-    for (const result of results) {
-      try {
-        const { id: uid, contentType } = result;
-
-        console.log(` Fetching entry: ${uid} (${contentType})`);
-        console.log(
-          ` Original scores - similarity: ${result.similarity}, score: ${result.score}, rerankScore: ${result.rerankScore}`
-        );
-
-        const entry = await contentstackService.fetchEntryByUid(
-          stackApiKey,
-          contentType,
-          uid,
-          environment
-        );
-
-        if (entry && entry.entry) {
+          console.log(` Fetching entry: ${uid} (${contentType})`);
           console.log(
-            ` Successfully enriched: ${entry.entry.title || entry.entry.name || uid}`
+            ` Original scores - similarity: ${result.similarity}, score: ${result.score}, rerankScore: ${result.rerankScore}`
           );
 
-          enrichedResults.push({
-            uid,
+          const entry = await contentstackService.fetchEntryByUid(
+            stackApiKey,
             contentType,
-            similarity: result.score,
-            rerankScore: result.rerankScore,
-            score: result.score,
-            ...entry.entry,
+            uid,
+            environment
+          );
+
+          if (entry && entry.entry) {
+            console.log(
+              ` Successfully enriched: ${entry.entry.title || entry.entry.name || uid}`
+            );
+
+            return {
+              uid,
+              contentType,
+              similarity: result.score,
+              rerankScore: result.rerankScore,
+              score: result.score,
+              ...entry.entry,
+            };
+          } else {
+            console.warn(` No entry data returned for ${uid}`);
+            return null;
+          }
+        } catch (error) {
+          console.warn(`Failed to enrich result ${result.id}`, {
+            error: error.message,
           });
-        } else {
-          console.warn(` No entry data returned for ${uid}`);
+          return null;
         }
-      } catch (error) {
-        console.warn(`Failed to enrich result ${result.id}`, {
-          error: error.message,
-        });
-      }
-    }
+      })
+    );
+
+    const filteredResults = enrichedResults
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value)
+      .filter((result) => result !== null);
 
     console.log(
-      ` Successfully enriched ${enrichedResults.length}/${results.length} results`
+      ` Successfully enriched ${filteredResults.length}/${results.length} results`
     );
-    return enrichedResults;
+    return filteredResults;
   } catch (error) {
     console.error("Failed to enrich results with Contentstack data", {
       error: error.message,

@@ -122,49 +122,10 @@ const listIndexes = async () => {
   }
 };
 
-const getIndexInfo = async (stackApiKey) => {
-  await ensureInitialized();
-  
-  const indexName = generateIndexName(stackApiKey);
-  
-  try {
-    const indexDescription = await pinecone.describeIndex(indexName);
-    return {
-      name: indexName,
-      dimension: indexDescription.dimension,
-      metric: indexDescription.metric,
-      status: indexDescription.status,
-      spec: indexDescription.spec
-    };
-  } catch (error) {
-    if (error.status === 404) {
-      return null;
-    }
-    throw new AppError(`Failed to get index info: ${error.message}`, 500);
-  }
-};
-
-const ensureIndexExists = async (stackApiKey, dimension = 1536) => {
-  const indexInfo = await getIndexInfo(stackApiKey);
-  
-  if (!indexInfo) {
-    const result = await createIndex(stackApiKey, dimension);
-    return result;
-  }
-  
-  return { 
-    indexName: indexInfo.name, 
-    created: false, 
-    message: 'Index already exists' 
-  };
-};
-
 module.exports = {
   initialize,
   generateIndexName,
   createIndex,
   deleteIndex,
-  listIndexes,
-  getIndexInfo,
-  ensureIndexExists,
+  listIndexes
 };

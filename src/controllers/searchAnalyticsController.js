@@ -66,55 +66,6 @@ const getSearchStats = asyncHandler(async (req, res) => {
   }
 });
 
-const getPerformanceMetrics = asyncHandler(async (req, res) => {
-  const stackApiKey = req.stackApiKey;
-  const hours = req.query.hours || 24;
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setHours(startDate.getHours() - parseInt(hours));
-
-  try {
-    const metrics = await SearchLog.aggregate([
-      {
-        $match: {
-          stackApiKey,
-          timestamp: { $gte: startDate, $lte: endDate }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: "%Y-%m-%d %H:00",
-              date: "$timestamp"
-            }
-          },
-          searchCount: { $sum: 1 },
-          avgResponseTime: { $avg: "$responseTime" },
-          successRate: {
-            $avg: {
-              $cond: [{ $eq: ["$success", true] }, 1, 0]
-            }
-          }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
-
-    res.json({
-      success: true,
-      period: {
-        startDate,
-        endDate,
-        hours: parseInt(hours)
-      },
-      metrics
-    });
-
-  } catch (error) {
-    throw error;
-  }
-});
 
 module.exports = {
   getSearchAnalytics,

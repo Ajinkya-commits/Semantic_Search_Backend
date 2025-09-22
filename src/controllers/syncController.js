@@ -175,28 +175,10 @@ const getIndexingStats = asyncHandler(async (req, res) => {
   }
 });
 
-const clearIndex = asyncHandler(async (req, res) => {
-  const stackApiKey = req.stackApiKey;
-
-  try {
-    await vectorSearchService.setStackIndex(stackApiKey);
-    await vectorSearchService.clearIndex();
-
-    res.json({
-      success: true,
-      message: `Index cleared for stack: ${stackApiKey}`
-    });
-
-  } catch (error) {
-    throw error;
-  }
-});
-
 module.exports = {
   indexAllEntries,
   indexEntry,
   removeEntry,
   updateEntry,
   getIndexingStats,
-  clearIndex,
 };

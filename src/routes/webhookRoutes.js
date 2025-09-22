@@ -6,7 +6,6 @@ const { AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
-// Unified webhook handler - handles both /entry-sync and /asset-sync
 router.post('/entry-sync', handleWebhook);
 router.post('/asset-sync', handleWebhook);
 
@@ -49,7 +48,6 @@ async function handleWebhook(req, res) {
   }
 }
 
-// Handle entry webhooks
 async function handleEntryWebhook(entry, contentType, event, stackApiKey) {
   const entryUid = entry.uid;
   const contentTypeUid = contentType?.uid;
@@ -65,7 +63,6 @@ async function handleEntryWebhook(entry, contentType, event, stackApiKey) {
   }
 }
 
-// Handle asset webhooks  
 async function handleAssetWebhook(asset, event, stackApiKey) {
   const assetUid = asset.uid;
   
@@ -85,7 +82,6 @@ async function handleAssetWebhook(asset, event, stackApiKey) {
   }
 }
 
-// Function to index a single asset
 async function indexSingleAsset(asset, stackApiKey) {
   try {
     // Set the correct Pinecone index for the stack
@@ -131,7 +127,6 @@ async function indexSingleAsset(asset, stackApiKey) {
   }
 }
 
-// Function to remove asset from index
 async function removeAssetFromIndex(assetUid, stackApiKey) {
   try {
     // Set the correct Pinecone index for the stack

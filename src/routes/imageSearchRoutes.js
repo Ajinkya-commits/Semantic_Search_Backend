@@ -5,14 +5,12 @@ const { autoDetectStackApiKey } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Configure multer for image uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024, 
   },
   fileFilter: (req, file, cb) => {
-    // Check if file is an image
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
@@ -20,15 +18,11 @@ const upload = multer({
     }
   }
 });
-
-// Apply stack validation middleware to all routes
 router.use(autoDetectStackApiKey);
 
-// Image indexing routes
 router.post('/index', imageSearchController.indexImages);
 router.get('/stats', imageSearchController.getImageStats);
 
-// Image search routes
 router.post('/search', imageSearchController.searchImages);
 router.post('/search/upload', upload.single('image'), imageSearchController.searchImageByUpload);
 

@@ -6,7 +6,6 @@ const router = express.Router();
 
 router.use(autoDetectStackApiKey);
 
-// Keep only the routes that are actually used by the frontend
 router.post('/index-all', syncController.indexAllEntries);
 router.get('/stats', syncController.getIndexingStats);
 

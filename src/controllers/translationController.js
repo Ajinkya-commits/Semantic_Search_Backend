@@ -57,8 +57,6 @@ const translateEntry = asyncHandler(async (req, res) => {
     ...translationResult
   });
 });
-
-
 const getSupportedLanguages = asyncHandler(async (req, res) => {
   const languages = translationService.getSupportedLanguages();
 
@@ -68,8 +66,6 @@ const getSupportedLanguages = asyncHandler(async (req, res) => {
     total: languages.length
   });
 });
-
-
 const translateEntryFields = asyncHandler(async (req, res) => {
   const { entryData, targetLanguage, fieldsToTranslate } = req.body;
 

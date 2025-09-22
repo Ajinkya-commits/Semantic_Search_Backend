@@ -15,7 +15,7 @@ const semanticSearch = asyncHandler(async (req, res) => {
   const stackApiKey = req.stackApiKey;
 
   try {
-    console.log("Semantic search request", {
+    console.log("🔍 Semantic search request", {
       query: query.substring(0, 100),
       topK,
       filters,
@@ -23,10 +23,12 @@ const semanticSearch = asyncHandler(async (req, res) => {
       stackApiKey,
     });
 
+    const vectorSearchStart = Date.now();
     const queryEmbedding = await embeddingsService.generateTextEmbedding(
       query,
       "search_query"
     );
+    console.log(`⚡ Embedding generation took: ${Date.now() - vectorSearchStart}ms`);
 
     if (!queryEmbedding) {
       throw new AppError("Failed to generate query embedding", 500);
@@ -39,13 +41,15 @@ const semanticSearch = asyncHandler(async (req, res) => {
       await vectorSearchService.setStackIndex(stackApiKey);
     }
 
+    const vectorSearchTime = Date.now();
     const vectorResults = await vectorSearchService.search(
       queryEmbedding,
-      Math.min(topK * 2, 20),
+      Math.floor(Math.min(topK * 1.5, 15)), 
       metadataFilters,
-      0.1,
+      0.15, 
       stackApiKey
     );
+    console.log(`⚡ Vector search took: ${Date.now() - vectorSearchTime}ms`);
 
     console.log('Semantic search results types:', vectorResults.map(r => ({ id: r.id, type: r.type })));
 
@@ -66,21 +70,22 @@ const semanticSearch = asyncHandler(async (req, res) => {
       });
     }
 
-    const rerankedResults = await rerankerService.rerankResults(
-      query,
-      vectorResults,
-      topK
-    );
+    const processingStart = Date.now();
+    const [rerankedResults, partialEnrichment] = await Promise.all([
+      rerankerService.rerankResults(query, vectorResults, topK),
+ 
+      Promise.resolve(vectorResults) 
+    ]);
+    console.log(`⚡ Reranking took: ${Date.now() - processingStart}ms`);
+
+    const enrichmentStart = Date.now();
     const fullResults = await enrichResultsWithContentstackData(
       rerankedResults,
       stackApiKey,
       environment
     );
     
-    // Final filter to ensure only text results are returned (not images)
     const textOnlyResults = fullResults.filter(result => result.type !== 'image');
-    console.log(`Filtered results: ${fullResults.length} -> ${textOnlyResults.length} (removed ${fullResults.length - textOnlyResults.length} image results)`);
-    
     const responseTime = Date.now() - startTime;
 
     await logSearch(
