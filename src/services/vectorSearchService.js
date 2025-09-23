@@ -8,6 +8,58 @@ let index = null;
 let isInitialized = false;
 let currentIndexName = null;
 
+const createIndexIfNotExists = async (stackApiKey) => {
+  const indexName = pineconeIndexService.generateIndexName(stackApiKey);
+  
+  try {
+    // Try to describe the index first
+    const testIndex = pinecone.Index(indexName);
+    await testIndex.describeIndexStats();
+    console.log(`Index ${indexName} already exists`);
+    return indexName;
+  } catch (error) {
+    if (error.message.includes('404')) {
+      console.log(`Creating new index: ${indexName}`);
+      
+      try {
+        await pinecone.createIndex({
+          name: indexName,
+          dimension: 1536, 
+          metric: 'cosine',
+          spec: {
+            serverless: {
+              cloud: 'aws',
+              region: 'us-east-1'
+            }
+          }
+        });
+        
+        let attempts = 0;
+        const maxAttempts = 24; 
+        
+        while (attempts < maxAttempts) {
+          try {
+            const newIndex = pinecone.Index(indexName);
+            await newIndex.describeIndexStats();
+            console.log(`Index ${indexName} is now ready!`);
+            return indexName;
+          } catch (waitError) {
+            attempts++;
+            console.log(`Waiting for index... (${attempts}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          }
+        }
+        
+        throw new Error(`Index ${indexName} creation timed out`);
+      } catch (createError) {
+        throw new AppError(`Failed to create index ${indexName}: ${createError.message}`, 500);
+      }
+    } else {
+      throw new AppError(`Failed to check index ${indexName}: ${error.message}`, 500);
+    }
+  }
+};
+
 const initialize = async (stackApiKey = null) => {
   if (!stackApiKey) {
     throw new AppError('stackApiKey is required for vector search initialization', 400);
@@ -23,13 +75,15 @@ const initialize = async (stackApiKey = null) => {
     pinecone = new Pinecone({ 
       apiKey: config.apis.pinecone.apiKey,
     });
+
+    await createIndexIfNotExists(stackApiKey);
     
     index = pinecone.Index(targetIndexName);
     currentIndexName = targetIndexName;
-    
     await index.describeIndexStats();
     
     isInitialized = true;
+    console.log(`Vector search initialized for index: ${targetIndexName}`);
   } catch (error) {
     throw new AppError(`Failed to initialize vector search: ${error.message}`, 500);
   }

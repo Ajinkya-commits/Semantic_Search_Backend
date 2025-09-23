@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(autoDetectStackApiKey);
 
 router.post('/index-all', syncController.indexAllEntries);
+router.post('/reindex', syncController.indexAllEntries); 
 router.get('/stats', syncController.getIndexingStats);
 
 module.exports = router;
